@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { Sidebar } from './components/Sidebar';
 import { Dashboard } from './pages/Dashboard';
+import { Collars } from './pages/Collars';
 
 function App() {
   return (
@@ -11,6 +12,7 @@ function App() {
         <main className="flex-1 overflow-auto">
           <Routes>
             <Route path="/" element={<Dashboard />} />
+            <Route path="/collars" element={<Collars />} />
             <Route path="/feeders" element={<div className="p-8 text-white">Feeders Page - Coming Soon</div>} />
             <Route path="/water" element={<div className="p-8 text-white">Water Dispensers Page - Coming Soon</div>} />
             <Route path="/schedules" element={<div className="p-8 text-white">Schedules Page - Coming Soon</div>} />

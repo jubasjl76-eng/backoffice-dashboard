@@ -4,6 +4,7 @@ import { COLORS } from '../constants';
 
 const navItems = [
   { path: '/', label: 'Dashboard', icon: '📊' },
+  { path: '/collars', label: 'GPS Collars', icon: '📍' },
   { path: '/feeders', label: 'Feeders', icon: '🐶' },
   { path: '/water', label: 'Water Dispensers', icon: '💧' },
   { path: '/schedules', label: 'Schedules', icon: '⏰' },
