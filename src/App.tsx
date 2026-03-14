@@ -3,6 +3,11 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { Sidebar } from './components/Sidebar';
 import { Dashboard } from './pages/Dashboard';
 import { Collars } from './pages/Collars';
+import { Feeders } from './pages/Feeders';
+import { Water } from './pages/Water';
+import { Schedules } from './pages/Schedules';
+import { Analytics } from './pages/Analytics';
+import { Settings } from './pages/Settings';
 
 function App() {
   return (
@@ -13,11 +18,11 @@ function App() {
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/collars" element={<Collars />} />
-            <Route path="/feeders" element={<div className="p-8 text-white">Feeders Page - Coming Soon</div>} />
-            <Route path="/water" element={<div className="p-8 text-white">Water Dispensers Page - Coming Soon</div>} />
-            <Route path="/schedules" element={<div className="p-8 text-white">Schedules Page - Coming Soon</div>} />
-            <Route path="/analytics" element={<div className="p-8 text-white">Analytics Page - Coming Soon</div>} />
-            <Route path="/settings" element={<div className="p-8 text-white">Settings Page - Coming Soon</div>} />
+            <Route path="/feeders" element={<Feeders />} />
+            <Route path="/water" element={<Water />} />
+            <Route path="/schedules" element={<Schedules />} />
+            <Route path="/analytics" element={<Analytics />} />
+            <Route path="/settings" element={<Settings />} />
           </Routes>
         </main>
       </div>
