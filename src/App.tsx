@@ -2,6 +2,10 @@ import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { Sidebar } from './components/Sidebar';
 import { Dashboard } from './pages/Dashboard';
+import { KennelMonitor } from './pages/KennelMonitor';
+import { Sensors } from './pages/Sensors';
+import { Cameras } from './pages/Cameras';
+import { Alerts } from './pages/Alerts';
 import { Collars } from './pages/Collars';
 import { Feeders } from './pages/Feeders';
 import { Water } from './pages/Water';
@@ -17,6 +21,10 @@ function App() {
         <main className="flex-1 overflow-auto">
           <Routes>
             <Route path="/" element={<Dashboard />} />
+            <Route path="/kennel" element={<KennelMonitor />} />
+            <Route path="/sensors" element={<Sensors />} />
+            <Route path="/cameras" element={<Cameras />} />
+            <Route path="/alerts" element={<Alerts />} />
             <Route path="/collars" element={<Collars />} />
             <Route path="/feeders" element={<Feeders />} />
             <Route path="/water" element={<Water />} />

@@ -1,12 +1,22 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { COLORS } from '../constants';
 
 const navItems = [
+  // Main
   { path: '/', label: 'Dashboard', icon: '📊' },
+  
+  // IoT Monitoring
+  { path: '/kennel', label: 'Kennel Monitor', icon: '🐕' },
+  { path: '/sensors', label: 'Sensors', icon: '📡' },
+  { path: '/cameras', label: 'Cameras', icon: '📹' },
+  { path: '/alerts', label: 'Alerts', icon: '🔔' },
+  
+  // Devices
   { path: '/collars', label: 'GPS Collars', icon: '📍' },
-  { path: '/feeders', label: 'Feeders', icon: '🐶' },
+  { path: '/feeders', label: 'Feeders', icon: '🍖' },
   { path: '/water', label: 'Water Dispensers', icon: '💧' },
+  
+  // Management
   { path: '/schedules', label: 'Schedules', icon: '⏰' },
   { path: '/analytics', label: 'Analytics', icon: '📈' },
   { path: '/settings', label: 'Settings', icon: '⚙️' },
