@@ -9,7 +9,8 @@ const LOCAL_BACKEND_URLS = [
   'http://raspberrypi.local:3000',
 ];
 
-const CLOUD_BACKEND_URL = process.env.REACT_APP_CLOUD_BACKEND_URL || 'https://api.petsmart.example.com';
+const CLOUD_BACKEND_URL =
+  import.meta.env.VITE_CLOUD_BACKEND_URL || 'https://api.petsmart.example.com';
 
 interface BackendConfig {
   baseURL: string;

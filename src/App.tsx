@@ -1,11 +1,10 @@
-import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { Sidebar } from './components/Sidebar';
 import { Dashboard } from './pages/Dashboard';
-import { KennelMonitor } from './pages/KennelMonitor';
-import { Sensors } from './pages/Sensors';
-import { Cameras } from './pages/Cameras';
-import { Alerts } from './pages/Alerts';
+import KennelMonitor from './pages/KennelMonitor';
+import Sensors from './pages/Sensors';
+import Cameras from './pages/Cameras';
+import Alerts from './pages/Alerts';
 import { Collars } from './pages/Collars';
 import { Feeders } from './pages/Feeders';
 import { Water } from './pages/Water';
