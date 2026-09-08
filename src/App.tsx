@@ -1,40 +1,47 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import { Sidebar } from './components/Sidebar';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider, RequireAuth } from './lib/auth';
+import { Layout } from './components/Layout';
+import { Login } from './pages/Login';
 import { Dashboard } from './pages/Dashboard';
-import KennelMonitor from './pages/KennelMonitor';
-import Sensors from './pages/Sensors';
-import Cameras from './pages/Cameras';
-import Alerts from './pages/Alerts';
-import { Collars } from './pages/Collars';
-import { Feeders } from './pages/Feeders';
-import { Water } from './pages/Water';
-import { Schedules } from './pages/Schedules';
-import { Analytics } from './pages/Analytics';
+import { CareInbox } from './pages/CareInbox';
+import { Animals } from './pages/Animals';
+import { Pens } from './pages/Pens';
+import { Litters } from './pages/Litters';
+import { Buyers } from './pages/Buyers';
+import { Meds } from './pages/Meds';
+import { Rules } from './pages/Rules';
+import { Devices } from './pages/Devices';
+import { Ops } from './pages/Ops';
 import { Settings } from './pages/Settings';
 
-function App() {
+export default function App() {
   return (
     <BrowserRouter>
-      <div className="flex min-h-screen bg-slate-900">
-        <Sidebar />
-        <main className="flex-1 overflow-auto">
-          <Routes>
+      <AuthProvider>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route
+            element={
+              <RequireAuth>
+                <Layout />
+              </RequireAuth>
+            }
+          >
             <Route path="/" element={<Dashboard />} />
-            <Route path="/kennel" element={<KennelMonitor />} />
-            <Route path="/sensors" element={<Sensors />} />
-            <Route path="/cameras" element={<Cameras />} />
-            <Route path="/alerts" element={<Alerts />} />
-            <Route path="/collars" element={<Collars />} />
-            <Route path="/feeders" element={<Feeders />} />
-            <Route path="/water" element={<Water />} />
-            <Route path="/schedules" element={<Schedules />} />
-            <Route path="/analytics" element={<Analytics />} />
+            <Route path="/inbox" element={<CareInbox />} />
+            <Route path="/animals" element={<Animals />} />
+            <Route path="/pens" element={<Pens />} />
+            <Route path="/litters" element={<Litters />} />
+            <Route path="/buyers" element={<Buyers />} />
+            <Route path="/meds" element={<Meds />} />
+            <Route path="/rules" element={<Rules />} />
+            <Route path="/devices" element={<Devices />} />
+            <Route path="/ops" element={<Ops />} />
             <Route path="/settings" element={<Settings />} />
-          </Routes>
-        </main>
-      </div>
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Route>
+        </Routes>
+      </AuthProvider>
     </BrowserRouter>
   );
 }
-
-export default App;
