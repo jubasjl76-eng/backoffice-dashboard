@@ -12,6 +12,7 @@ import { Meds } from './pages/Meds';
 import { Rules } from './pages/Rules';
 import { Devices } from './pages/Devices';
 import { Ops } from './pages/Ops';
+import { Website } from './pages/Website';
 import { Settings } from './pages/Settings';
 
 export default function App() {
@@ -37,6 +38,7 @@ export default function App() {
             <Route path="/rules" element={<Rules />} />
             <Route path="/devices" element={<Devices />} />
             <Route path="/ops" element={<Ops />} />
+            <Route path="/website" element={<Website />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
