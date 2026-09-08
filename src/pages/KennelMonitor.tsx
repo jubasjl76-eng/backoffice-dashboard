@@ -3,7 +3,6 @@
  */
 
 import { useState, useEffect } from 'react';
-import { backend } from '../lib/backend';
 
 interface KennelData {
   id: string;
