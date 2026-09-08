@@ -1,81 +1,212 @@
-import React from 'react';
+import { useState } from 'react';
+import { api } from '../lib/api';
+import { useQuery, useMutation } from '../lib/useApi';
+import { useAuth } from '../lib/auth';
+import { Badge, Btn, Card, Field, Input, PageHeader, Select, Spinner } from '../components/ui';
+import { shortDate, timeAgo, titleCase } from '../lib/format';
 
-export const Settings: React.FC = () => {
+interface SetupStatus {
+  setupComplete: boolean;
+  canAdminister: boolean;
+  kennel: { slug: string; name: string; breedFocus: string | null; timezone: string } | null;
+  steps: Record<string, boolean>;
+  counts: { pens: number; animals: number; rules: number; devices: number };
+}
+interface User {
+  id: string;
+  email: string;
+  name: string | null;
+  role: string;
+  active: boolean;
+  created_at: string;
+}
+interface Invite {
+  token: string;
+  email: string;
+  role: string;
+  expires_at: string;
+  accepted_at: string | null;
+  created_at: string;
+}
+
+export function Settings() {
+  const { user } = useAuth();
+  const isOwner = user?.role === 'owner';
+  const status = useQuery<SetupStatus>('/setup/status');
+  const [run, busy] = useMutation();
+
+  // saved values come from the server; `edit` is an overlay of unsaved changes
+  const saved = {
+    name: status.data?.kennel?.name ?? '',
+    breedFocus: status.data?.kennel?.breedFocus ?? '',
+    timezone: status.data?.kennel?.timezone ?? 'UTC',
+  };
+  const [edit, setEdit] = useState<Partial<typeof saved>>({});
+  const k = { ...saved, ...edit };
+
+  async function saveKennel() {
+    const r = await run(() =>
+      api('/setup/kennel', { method: 'POST', body: { name: k.name, breedFocus: k.breedFocus || undefined, timezone: k.timezone } })
+    );
+    if (r) {
+      setEdit({});
+      status.reload();
+    }
+  }
+  async function complete() {
+    const r = await run(() => api('/setup/complete', { method: 'POST' }));
+    if (r) status.reload();
+  }
+  async function seedDemo() {
+    if (!confirm('Seed demo pens, dogs and preset rules?')) return;
+    const r = await run(() => api('/setup/seed-demo', { method: 'POST' }));
+    if (r) status.reload();
+  }
+
   return (
-    <div className="p-8">
-      <h1 className="text-2xl font-bold text-white mb-8">⚙️ Settings</h1>
-      
-      {/* Profile Section */}
-      <div className="bg-slate-800 rounded-xl p-6 border border-slate-700 mb-6">
-        <h2 className="text-lg font-semibold text-white mb-4">Profile</h2>
-        <div className="space-y-4">
-          <div>
-            <label className="block text-slate-400 text-sm mb-2">Name</label>
-            <input type="text" defaultValue="Marco" className="w-full bg-slate-700 text-white px-4 py-2 rounded-lg" />
-          </div>
-          <div>
-            <label className="block text-slate-400 text-sm mb-2">Email</label>
-            <input type="email" defaultValue="marco@test.com" className="w-full bg-slate-700 text-white px-4 py-2 rounded-lg" />
-          </div>
-          <button className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg">
-            Save Changes
-          </button>
-        </div>
-      </div>
+    <div className="space-y-6">
+      <PageHeader title="Settings" />
 
-      {/* Notifications */}
-      <div className="bg-slate-800 rounded-xl p-6 border border-slate-700 mb-6">
-        <h2 className="text-lg font-semibold text-white mb-4">Notifications</h2>
-        <div className="space-y-4">
-          {[
-            { label: 'Low food alerts', desc: 'Get notified when food is low' },
-            { label: 'Low water alerts', desc: 'Get notified when water is low' },
-            { label: 'Device offline', desc: 'Get notified when a device goes offline' },
-            { label: 'Schedule reminders', desc: 'Get notified about scheduled feedings' },
-          ].map((item, i) => (
-            <div key={i} className="flex items-center justify-between">
-              <div>
-                <p className="text-white">{item.label}</p>
-                <p className="text-slate-400 text-sm">{item.desc}</p>
-              </div>
-              <button className="w-12 h-6 bg-green-600 rounded-full relative">
-                <span className="absolute right-1 top-1 w-4 h-4 bg-white rounded-full"></span>
-              </button>
+      <Card className="p-5">
+        <h2 className="mb-3 font-medium text-slate-200">Kennel</h2>
+        {status.loading && !status.data ? (
+          <Spinner />
+        ) : (
+          <div className="space-y-3">
+            <div className="grid gap-3 sm:grid-cols-3">
+              <Field label="Name"><Input value={k.name} disabled={!status.data?.canAdminister} onChange={(e) => setEdit({ ...edit, name: e.target.value })} /></Field>
+              <Field label="Breed focus"><Input value={k.breedFocus} disabled={!status.data?.canAdminister} onChange={(e) => setEdit({ ...edit, breedFocus: e.target.value })} /></Field>
+              <Field label="Timezone"><Input value={k.timezone} disabled={!status.data?.canAdminister} onChange={(e) => setEdit({ ...edit, timezone: e.target.value })} /></Field>
             </div>
-          ))}
-        </div>
-      </div>
-
-      {/* API Settings */}
-      <div className="bg-slate-800 rounded-xl p-6 border border-slate-700 mb-6">
-        <h2 className="text-lg font-semibold text-white mb-4">API Configuration</h2>
-        <div className="space-y-4">
-          <div>
-            <label className="block text-slate-400 text-sm mb-2">API URL</label>
-            <input type="text" defaultValue="http://localhost:3000" className="w-full bg-slate-700 text-white px-4 py-2 rounded-lg" />
+            {status.data?.canAdminister && (
+              <div className="flex flex-wrap gap-2">
+                <Btn variant="primary" disabled={busy || !k.name} onClick={saveKennel}>Save</Btn>
+                {!status.data.setupComplete && (
+                  <Btn disabled={busy} onClick={complete}>Mark setup complete</Btn>
+                )}
+                <Btn variant="ghost" disabled={busy} onClick={seedDemo}>Seed demo data</Btn>
+              </div>
+            )}
+            {status.data && (
+              <div className="flex flex-wrap gap-2 pt-1 text-xs">
+                {Object.entries(status.data.steps).map(([step, done]) => (
+                  <Badge
+                    key={step}
+                    className={done ? 'bg-emerald-500/10 text-emerald-300 ring-emerald-500/30' : 'bg-slate-800 text-slate-500 ring-slate-700'}
+                  >
+                    {done ? '✓' : '○'} {titleCase(step)}
+                  </Badge>
+                ))}
+                <span className="text-slate-600">
+                  {status.data.counts.pens} pens · {status.data.counts.animals} dogs · {status.data.counts.rules} rules · {status.data.counts.devices} devices
+                </span>
+              </div>
+            )}
           </div>
-          <div>
-            <label className="block text-slate-400 text-sm mb-2">API Key</label>
-            <input type="password" defaultValue="••••••••••••" className="w-full bg-slate-700 text-white px-4 py-2 rounded-lg" />
-          </div>
-          <button className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg">
-            Update API Settings
-          </button>
-        </div>
-      </div>
+        )}
+      </Card>
 
-      {/* Danger Zone */}
-      <div className="bg-slate-800 rounded-xl p-6 border border-red-800">
-        <h2 className="text-lg font-semibold text-red-500 mb-4">Danger Zone</h2>
-        <div className="flex gap-4">
-          <button className="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-lg">
-            Delete All Data
-          </button>
-          <button className="bg-slate-700 hover:bg-slate-600 text-white px-6 py-2 rounded-lg">
-            Export Data
-          </button>
-        </div>
-      </div>
+      {isOwner ? <Team busy={busy} run={run} /> : (
+        <Card className="p-5 text-sm text-slate-500">Only owners can manage team members.</Card>
+      )}
     </div>
   );
-};
+}
+
+function Team({ busy, run }: { busy: boolean; run: ReturnType<typeof useMutation>[0] }) {
+  const users = useQuery<{ users: User[] }>('/users');
+  const invites = useQuery<{ invites: Invite[] }>('/users/invites');
+  const { user: me } = useAuth();
+  const [email, setEmail] = useState('');
+  const [role, setRole] = useState('staff');
+  const [lastLink, setLastLink] = useState<string | null>(null);
+
+  async function invite() {
+    const r = await run(() => api<{ invite: { acceptUrl: string } }>('/users/invite', { method: 'POST', body: { email, role } }));
+    if (r) {
+      setLastLink(r.invite.acceptUrl);
+      setEmail('');
+      invites.reload();
+    }
+  }
+  async function patchUser(id: string, body: Record<string, unknown>) {
+    const r = await run(() => api(`/users/${id}`, { method: 'PATCH', body }));
+    if (r) users.reload();
+  }
+  async function revoke(token: string) {
+    const r = await run(() => api(`/users/invites/${token}`, { method: 'DELETE' }));
+    if (r) invites.reload();
+  }
+
+  const openInvites = (invites.data?.invites ?? []).filter((i) => !i.accepted_at);
+
+  return (
+    <>
+      <Card className="p-5">
+        <h2 className="mb-3 font-medium text-slate-200">Team</h2>
+        {users.loading && !users.data ? (
+          <Spinner />
+        ) : (
+          <ul className="space-y-1.5">
+            {(users.data?.users ?? []).map((u) => (
+              <li key={u.id} className="flex flex-wrap items-center gap-3 border-t border-slate-800 py-2 text-sm first:border-0">
+                <div className="min-w-0 flex-1">
+                  <span className="text-slate-100">{u.name || u.email}</span>
+                  <span className="ml-2 text-xs text-slate-500">{u.email}</span>
+                </div>
+                {!u.active && <Badge className="bg-slate-700/40 text-slate-400 ring-slate-600/40">inactive</Badge>}
+                <Select
+                  className="w-24 !py-1 text-xs"
+                  value={u.role}
+                  disabled={busy || u.id === me?.id}
+                  onChange={(e) => patchUser(u.id, { role: e.target.value })}
+                  aria-label={`${u.email} role`}
+                >
+                  <option value="staff">Staff</option>
+                  <option value="owner">Owner</option>
+                </Select>
+                {u.id !== me?.id && (
+                  <Btn size="sm" variant="ghost" disabled={busy} onClick={() => patchUser(u.id, { active: !u.active })}>
+                    {u.active ? 'Deactivate' : 'Reactivate'}
+                  </Btn>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
+
+      <Card className="p-5">
+        <h2 className="mb-3 font-medium text-slate-200">Invite a team member</h2>
+        <div className="flex flex-wrap items-end gap-2">
+          <Field label="Email"><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></Field>
+          <Field label="Role">
+            <Select value={role} onChange={(e) => setRole(e.target.value)}>
+              <option value="staff">Staff</option>
+              <option value="owner">Owner</option>
+            </Select>
+          </Field>
+          <Btn variant="primary" disabled={busy || !email} onClick={invite}>Create invite</Btn>
+        </div>
+        {lastLink && (
+          <p className="mt-3 break-all rounded-lg border border-slate-800 bg-slate-900/60 p-2 text-xs text-slate-400">
+            Email delivery lands in Phase 3 — send this link manually:<br />
+            <span className="text-indigo-300">{lastLink}</span>
+          </p>
+        )}
+        {openInvites.length > 0 && (
+          <ul className="mt-4 space-y-1.5">
+            {openInvites.map((i) => (
+              <li key={i.token} className="flex items-center gap-2 text-sm">
+                <span className="min-w-0 flex-1 truncate text-slate-300">{i.email}</span>
+                <Badge className="bg-slate-800 text-slate-400 ring-slate-700">{i.role}</Badge>
+                <span className="text-xs text-slate-600">exp {shortDate(i.expires_at)} · {timeAgo(i.created_at)}</span>
+                <Btn size="sm" variant="ghost" disabled={busy} onClick={() => revoke(i.token)}>Revoke</Btn>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
+    </>
+  );
+}
