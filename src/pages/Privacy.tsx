@@ -5,7 +5,10 @@ import { useAuth } from '../lib/auth';
 import { Badge, Btn, Card, Field, Input, PageHeader, Select, Spinner } from '../components/ui';
 import { shortDate, timeAgo, titleCase } from '../lib/format';
 
-const ACTIONS = ['document.download', 'privacy.export', 'privacy.delete', 'camera.view', 'door.open'];
+const ACTIONS = [
+  'document.download', 'privacy.export', 'privacy.delete', 'camera.view', 'door.open',
+  'fleet.rollout.start', 'fleet.rollout.update', 'fleet.ota.push',
+];
 const SUBJECT_TYPES = ['buyer', 'animal', 'litter'] as const;
 const RETENTION_HINT: Record<string, string> = {
   access_log: 'Who opened papers, exports and erasures. Empty keeps the log forever.',
