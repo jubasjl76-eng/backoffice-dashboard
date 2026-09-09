@@ -5,7 +5,10 @@ import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { useMutation, useQuery } from '../lib/useApi';
 
-const ACTIONS = ['document.download', 'privacy.export', 'privacy.delete', 'camera.view', 'door.open'];
+const ACTIONS = [
+  'document.download', 'privacy.export', 'privacy.delete', 'camera.view', 'door.open',
+  'fleet.rollout.start', 'fleet.rollout.update', 'fleet.ota.push',
+];
 const SUBJECT_TYPES = ['buyer', 'animal', 'litter'] as const;
 
 interface LogEntry {

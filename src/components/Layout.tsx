@@ -18,6 +18,7 @@ const NAV = [
   { to: '/vaccinations', key: 'nav.vaccinations', icon: '💉' },
   { to: '/rules', key: 'nav.rules', icon: '⚙' },
   { to: '/devices', key: 'nav.devices', icon: '📟' },
+  { to: '/fleet', key: 'nav.fleet', icon: '📡' },
   { to: '/ops', key: 'nav.ops', icon: '🛠' },
   { to: '/website', key: 'nav.website', icon: '🌐' },
   { to: '/templates', key: 'nav.templates', icon: '📄' },
