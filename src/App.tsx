@@ -15,6 +15,8 @@ import { Ops } from './pages/Ops';
 import { Website } from './pages/Website';
 import { Settings } from './pages/Settings';
 import { Notifications } from './pages/Notifications';
+import { Vaccinations } from './pages/Vaccinations';
+import { GoHomePack } from './pages/GoHomePack';
 
 export default function App() {
   return (
@@ -36,6 +38,8 @@ export default function App() {
             <Route path="/litters" element={<Litters />} />
             <Route path="/buyers" element={<Buyers />} />
             <Route path="/meds" element={<Meds />} />
+            <Route path="/vaccinations" element={<Vaccinations />} />
+            <Route path="/go-home/:pupId" element={<GoHomePack />} />
             <Route path="/rules" element={<Rules />} />
             <Route path="/devices" element={<Devices />} />
             <Route path="/ops" element={<Ops />} />
