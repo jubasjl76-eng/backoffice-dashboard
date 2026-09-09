@@ -21,7 +21,7 @@ interface Animal {
 const KINDS = ['whelping', 'run', 'yard', 'quarantine', 'kitchen'];
 
 export function Pens() {
-  const pens = useQuery<{ pens: Pen[] }>('/breeder/litters/pens');
+  const pens = useQuery<{ pens: Pen[] }>('/breeder/animals/pens');
   const animals = useQuery<{ animals: Animal[] }>('/breeder/animals');
   const [run, busy] = useMutation();
   const [adding, setAdding] = useState(false);
@@ -29,7 +29,7 @@ export function Pens() {
 
   async function create() {
     const r = await run(() =>
-      api('/breeder/litters/pens', { method: 'POST', body: { name: form.name, kind: form.kind, capacity: Number(form.capacity) } })
+      api('/breeder/animals/pens', { method: 'POST', body: { name: form.name, kind: form.kind, capacity: Number(form.capacity) } })
     );
     if (r) {
       setAdding(false);

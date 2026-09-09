@@ -19,6 +19,7 @@ import { Vaccinations } from './pages/Vaccinations';
 import { GoHomePack } from './pages/GoHomePack';
 import { Calendar } from './pages/Calendar';
 import { Templates } from './pages/Templates';
+import { Privacy } from './pages/Privacy';
 
 export default function App() {
   return (
@@ -49,6 +50,7 @@ export default function App() {
             <Route path="/ops" element={<Ops />} />
             <Route path="/website" element={<Website />} />
             <Route path="/notifications" element={<Notifications />} />
+            <Route path="/privacy" element={<Privacy />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
