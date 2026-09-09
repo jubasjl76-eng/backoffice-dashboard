@@ -4,6 +4,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { api } from '../lib/api';
 import { useQuery, useMutation } from '../lib/useApi';
 import { Badge, Btn, Card, Drawer, EmptyState, Field, Input, PageHeader, Select, Spinner } from '../components/ui';
+import { DocumentsPanel } from '../components/Documents';
 import { shortDate, titleCase } from '../lib/format';
 import { ProgesteroneForm, RecordMating } from './Calendar';
 
@@ -56,6 +57,7 @@ export function Litters() {
   const [openId, setOpenId] = useState<string | null>(null);
   const [mateId, setMateId] = useState<string | null>(null);
   const [progId, setProgId] = useState<string | null>(null);
+  const [papersId, setPapersId] = useState<string | null>(null);
   const [form, setForm] = useState({ name: '', damId: '', sireId: '', dueOn: '' });
 
   async function create() {
@@ -127,6 +129,7 @@ export function Litters() {
                 {['planned', 'expecting', 'mated'].includes(l.status) && (
                   <Btn size="sm" disabled={busy} onClick={() => whelp(l)}>Mark whelped</Btn>
                 )}
+                <Btn size="sm" variant="ghost" onClick={() => setPapersId(l.id)}>Papers</Btn>
               </Card>
             </li>
           ))}
@@ -170,6 +173,9 @@ export function Litters() {
       <Drawer open={!!progId} onClose={() => setProgId(null)} title="Progesterone">
         {progId && <ProgesteroneForm litterId={progId} onDone={() => q.reload()} />}
       </Drawer>
+      <Drawer open={!!papersId} onClose={() => setPapersId(null)} title="Litter papers">
+        {papersId && <DocumentsPanel subjectType="litter" subjectId={papersId} defaultKind="other" />}
+      </Drawer>
     </div>
   );
 }
@@ -178,6 +184,7 @@ function LitterPuppies({ litterId }: { litterId: string }) {
   const q = useQuery<{ puppies: Puppy[] }>(`/breeder/litters/${litterId}/puppies`);
   const [run, busy] = useMutation();
   const [form, setForm] = useState({ name: '', collarColor: '', sex: 'female', birthWeightG: '' });
+  const [papersPup, setPapersPup] = useState<Puppy | null>(null);
 
   async function addPuppy() {
     const r = await run(() =>
@@ -279,6 +286,7 @@ function LitterPuppies({ litterId }: { litterId: string }) {
                   <span className="ml-auto flex items-center gap-1">
                     <Badge className="bg-slate-800 text-slate-400 ring-slate-700">{p.status}</Badge>
                     <Btn size="sm" variant="ghost" disabled={busy} onClick={() => addWeight(p.id)}>+ weight</Btn>
+                    <Btn size="sm" variant="ghost" onClick={() => setPapersPup(p)}>Papers</Btn>
                     <Link
                       to={`/go-home/${p.id}`}
                       className="rounded-lg px-2.5 py-1 text-xs text-slate-300 hover:bg-slate-800 hover:text-white"
@@ -291,6 +299,16 @@ function LitterPuppies({ litterId }: { litterId: string }) {
             ))}
           </ul>
         </>
+      )}
+
+      {papersPup && (
+        <div className="rounded-lg border border-slate-800 p-3">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <h3 className="font-medium text-slate-200">{papersPup.name} · papers</h3>
+            <Btn size="sm" variant="ghost" onClick={() => setPapersPup(null)}>Close</Btn>
+          </div>
+          <DocumentsPanel subjectType="puppy" subjectId={papersPup.id} defaultKind="certificate" />
+        </div>
       )}
     </div>
   );

@@ -1,6 +1,7 @@
 import { useParams } from 'react-router-dom';
 import { useQuery } from '../lib/useApi';
 import { Btn, EmptyState, PageHeader, Spinner } from '../components/ui';
+import { DocumentsPanel } from '../components/Documents';
 import { shortDate } from '../lib/format';
 
 interface Pack {
@@ -108,7 +109,14 @@ export function GoHomePack() {
         </section>
       )}
 
-      <p className="text-xs text-slate-600">Generated {shortDate(q.data.generatedAt)}. Papers attach in Phase 7.</p>
+      {pupId && (
+        <section className="text-sm print:hidden">
+          <h3 className="mb-2 font-medium text-slate-200">Papers</h3>
+          <DocumentsPanel subjectType="puppy" subjectId={pupId} defaultKind="handoff" />
+        </section>
+      )}
+
+      <p className="text-xs text-slate-600">Generated {shortDate(q.data.generatedAt)}.</p>
     </div>
   );
 }
