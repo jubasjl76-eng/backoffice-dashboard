@@ -20,6 +20,7 @@ const NAV = [
   { to: '/website', label: 'Website', icon: '🌐' },
   { to: '/templates', label: 'Templates', icon: '📄' },
   { to: '/notifications', label: 'Notifications', icon: '🔔' },
+  { to: '/privacy', label: 'Data & privacy', icon: '🔒' },
   { to: '/settings', label: 'Settings', icon: '⚙️' },
 ];
 
