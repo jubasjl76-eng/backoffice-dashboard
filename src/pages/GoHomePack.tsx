@@ -1,9 +1,18 @@
 import { useParams } from 'react-router-dom';
-import { useQuery } from '../lib/useApi';
-import { Btn, EmptyState, PageHeader, Spinner } from '../components/ui';
+import { useQuery, useMutation } from '../lib/useApi';
+import { Badge, Btn, EmptyState, PageHeader, Spinner } from '../components/ui';
 import { DocumentsPanel } from '../components/Documents';
-import { shortDate } from '../lib/format';
+import { apiDownload, apiOpen } from '../lib/api';
+import { shortDate, titleCase } from '../lib/format';
 
+interface PackDoc {
+  id: string;
+  kind: string;
+  title: string | null;
+  filename: string | null;
+  generated: boolean;
+  created_at: string;
+}
 interface Pack {
   generatedAt: string;
   puppy: {
@@ -29,17 +38,18 @@ interface Pack {
     vet_name: string | null;
     certificate_url: string | null;
   }>;
-  documents: unknown[];
+  documents: PackDoc[];
 }
 
 export function GoHomePack() {
   const { pupId } = useParams<{ pupId: string }>();
   const q = useQuery<Pack>(pupId ? `/breeder/buyers/puppies/${pupId}/go-home-pack` : null);
+  const [run, busy] = useMutation();
 
   if (q.loading && !q.data) return <Spinner />;
   if (q.error || !q.data) return <EmptyState title="Couldn't load the go-home pack" hint={q.error ?? undefined} />;
 
-  const { puppy: p, buyer, weightSeries, vaccinations } = q.data;
+  const { puppy: p, buyer, weightSeries, vaccinations, documents } = q.data;
   const latest = weightSeries.at(-1);
 
   return (
@@ -109,10 +119,44 @@ export function GoHomePack() {
         </section>
       )}
 
+      <section className="text-sm">
+        <h3 className="mb-2 font-medium text-slate-200">Papers</h3>
+        {documents.length === 0 ? (
+          <p className="text-slate-400">No papers attached yet. Generate the sale pack below.</p>
+        ) : (
+          <ul className="space-y-1.5">
+            {documents.map((d) => (
+              <li key={d.id} className="flex flex-wrap items-center gap-2">
+                <Badge className="bg-slate-800 text-slate-300 ring-slate-700">{titleCase(d.kind)}</Badge>
+                <span className="min-w-0 flex-1 text-slate-200">{d.title || d.filename}</span>
+                {d.generated && <span className="text-xs text-slate-500">generated</span>}
+                <span className="text-xs text-slate-500">{shortDate(d.created_at)}</span>
+                <span className="print:hidden flex gap-1">
+                  <Btn size="sm" variant="ghost" disabled={busy} onClick={() => run(() => apiOpen(`/breeder/documents/${d.id}/download`))}>Open</Btn>
+                  <Btn
+                    size="sm"
+                    variant="ghost"
+                    disabled={busy}
+                    onClick={() => run(() => apiDownload(`/breeder/documents/${d.id}/download`, d.filename || d.title || 'document'))}
+                  >
+                    Download
+                  </Btn>
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
       {pupId && (
         <section className="text-sm print:hidden">
-          <h3 className="mb-2 font-medium text-slate-200">Papers</h3>
-          <DocumentsPanel subjectType="puppy" subjectId={pupId} defaultKind="handoff" />
+          <DocumentsPanel
+            subjectType="puppy"
+            subjectId={pupId}
+            defaultKind="handoff"
+            generate
+            onGenerated={() => q.reload()}
+          />
         </section>
       )}
 

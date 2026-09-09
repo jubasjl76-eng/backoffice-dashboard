@@ -1,4 +1,5 @@
 import { useState, type DragEvent } from 'react';
+import { Link } from 'react-router-dom';
 import { api, apiDownload, apiOpen, apiUpload } from '../lib/api';
 import { useQuery, useMutation } from '../lib/useApi';
 import { Badge, Btn, Field, Input, Select, Spinner } from './ui';
@@ -21,6 +22,118 @@ interface DocRow {
 
 type SubjectType = 'animal' | 'puppy' | 'buyer' | 'litter';
 
+const AUTO_TOKENS = new Set([
+  'today', 'kennel_name',
+  'puppy_name', 'puppy_sex', 'puppy_color', 'microchip', 'go_home_on', 'breed',
+  'birth_date', 'dam_name', 'sire_name', 'buyer_name', 'buyer_email',
+]);
+
+interface Template {
+  slug: string;
+  kind: string;
+  title: string;
+  body: string;
+  customised: boolean;
+  tokens: string[];
+}
+
+export function GenerateDoc({
+  subjectType,
+  subjectId,
+  onGenerated,
+}: {
+  subjectType: 'puppy' | 'buyer';
+  subjectId: string;
+  onGenerated?: () => void;
+}) {
+  const q = useQuery<{ templates: Template[] }>('/breeder/documents/templates');
+  const [run, busy] = useMutation();
+  const [slug, setSlug] = useState('contract');
+  const [values, setValues] = useState<Record<string, string>>({});
+  const [preview, setPreview] = useState<{ id: string; title: string; body: string } | null>(null);
+
+  const templates = q.data?.templates ?? [];
+  const tpl = templates.find((t) => t.slug === slug) ?? templates[0];
+  const extras = (tpl?.tokens ?? []).filter((t) => !AUTO_TOKENS.has(t));
+  const autos = (tpl?.tokens ?? []).filter((t) => AUTO_TOKENS.has(t));
+
+  function pick(next: string) {
+    setSlug(next);
+    setValues({});
+    setPreview(null);
+  }
+
+  async function generate() {
+    if (!tpl) return;
+    const tokens: Record<string, string> = {};
+    for (const [k, v] of Object.entries(values)) {
+      if (v.trim()) tokens[k] = v.trim();
+    }
+    const r = await run(() =>
+      api<{ document: { id: string; title: string }; body: string }>('/breeder/documents/generate', {
+        method: 'POST',
+        body: { template: tpl.slug, subjectType, subjectId, tokens },
+      })
+    );
+    if (r) {
+      setPreview({ id: r.document.id, title: r.document.title, body: r.body });
+      onGenerated?.();
+    }
+  }
+
+  if (q.loading && !q.data) return <Spinner />;
+  if (!tpl) return <p className="text-xs text-slate-400">No templates available.</p>;
+
+  return (
+    <div className="space-y-3 rounded-lg border border-slate-800 p-3">
+      <div className="flex items-center justify-between gap-2">
+        <div className="font-medium text-slate-200">Generate paperwork</div>
+        <Link to="/templates" className="text-xs text-indigo-400 hover:text-indigo-300">Edit templates</Link>
+      </div>
+      <Field label="Template">
+        <Select value={tpl.slug} onChange={(e) => pick(e.target.value)}>
+          {templates.map((t) => (
+            <option key={t.slug} value={t.slug}>{t.title}</option>
+          ))}
+        </Select>
+      </Field>
+      {autos.length > 0 && (
+        <p className="text-xs text-slate-400">
+          Auto-filled when known: {autos.join(', ')}. Override below only if a value is missing.
+        </p>
+      )}
+      <div className="grid gap-2 sm:grid-cols-2">
+        {[...extras, ...autos].map((tok) => (
+          <Field key={tok} label={tok.replace(/_/g, ' ')}>
+            <Input
+              value={values[tok] ?? ''}
+              placeholder={AUTO_TOKENS.has(tok) ? 'auto' : ''}
+              onChange={(e) => setValues({ ...values, [tok]: e.target.value })}
+            />
+          </Field>
+        ))}
+      </div>
+      <Btn variant="primary" disabled={busy} onClick={generate}>Generate</Btn>
+      {preview && (
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-slate-100">{preview.title}</span>
+            <Btn size="sm" variant="ghost" onClick={() => run(() => apiOpen(`/breeder/documents/${preview.id}/download`))}>Open</Btn>
+            <Btn
+              size="sm"
+              variant="ghost"
+              onClick={() => run(() => apiDownload(`/breeder/documents/${preview.id}/download`, `${preview.title}.md`))}
+            >
+              Download
+            </Btn>
+          </div>
+          <pre className="max-h-64 overflow-auto whitespace-pre-wrap rounded-lg border border-slate-800 bg-slate-950/60 p-3 text-xs text-slate-300">{preview.body}</pre>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function bytes(n: number | null | undefined): string {
   if (n == null) return '';
   if (n < 1024) return `${n} B`;
@@ -32,10 +145,14 @@ export function DocumentsPanel({
   subjectType,
   subjectId,
   defaultKind = 'other',
+  generate = false,
+  onGenerated,
 }: {
   subjectType: SubjectType;
   subjectId: string;
   defaultKind?: string;
+  generate?: boolean;
+  onGenerated?: () => void;
 }) {
   const q = useQuery<{ documents: DocRow[] }>(
     `/breeder/documents?subjectType=${subjectType}&subjectId=${subjectId}`
@@ -76,6 +193,16 @@ export function DocumentsPanel({
 
   return (
     <div className="space-y-3 text-sm">
+      {generate && (subjectType === 'puppy' || subjectType === 'buyer') && (
+        <GenerateDoc
+          subjectType={subjectType}
+          subjectId={subjectId}
+          onGenerated={() => {
+            q.reload();
+            onGenerated?.();
+          }}
+        />
+      )}
       <div
         onDragOver={(e) => {
           e.preventDefault();

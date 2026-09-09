@@ -307,7 +307,7 @@ function LitterPuppies({ litterId }: { litterId: string }) {
             <h3 className="font-medium text-slate-200">{papersPup.name} · papers</h3>
             <Btn size="sm" variant="ghost" onClick={() => setPapersPup(null)}>Close</Btn>
           </div>
-          <DocumentsPanel subjectType="puppy" subjectId={papersPup.id} defaultKind="certificate" />
+          <DocumentsPanel subjectType="puppy" subjectId={papersPup.id} defaultKind="certificate" generate />
         </div>
       )}
     </div>

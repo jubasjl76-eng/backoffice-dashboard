@@ -352,7 +352,7 @@ export function Buyers() {
         )}
       </Card>
       <Drawer open={!!papersFor} onClose={() => setPapersFor(null)} title={papersFor ? `${papersFor.name} · papers` : 'Papers'}>
-        {papersFor && <DocumentsPanel subjectType="buyer" subjectId={papersFor.id} defaultKind="contract" />}
+        {papersFor && <DocumentsPanel subjectType="buyer" subjectId={papersFor.id} defaultKind="contract" generate />}
       </Drawer>
     </div>
   );
