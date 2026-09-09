@@ -70,6 +70,7 @@ export function Buyers() {
   const [bc, setBc] = useState({ subject: '', body: '', litterId: '', status: '' });
   const [msgFor, setMsgFor] = useState<Buyer | null>(null);
   const [dm, setDm] = useState({ subject: '', body: '' });
+  const [matchFor, setMatchFor] = useState<Buyer | null>(null);
   const [papersFor, setPapersFor] = useState<Buyer | null>(null);
 
   async function create() {
@@ -95,6 +96,7 @@ export function Buyers() {
   async function patch(id: string, body: Record<string, unknown>) {
     const r = await run(() => api(`/breeder/litters/buyers/${id}`, { method: 'PATCH', body }));
     if (r) q.reload();
+    return r;
   }
 
   async function sendBroadcast() {
@@ -246,6 +248,21 @@ export function Buyers() {
         </Card>
       )}
 
+      {matchFor && (
+        <MatchForm
+          buyer={matchFor}
+          litters={litters.data?.litters ?? []}
+          busy={busy}
+          onCancel={() => setMatchFor(null)}
+          onMatch={async (puppyId) => {
+            if (await patch(matchFor.id, { puppyId, status: 'matched' })) setMatchFor(null);
+          }}
+          onUnmatch={async () => {
+            if (await patch(matchFor.id, { puppyId: null, status: 'waitlist' })) setMatchFor(null);
+          }}
+        />
+      )}
+
       {q.loading && !q.data ? (
         <Spinner />
       ) : buyers.length === 0 ? (
@@ -287,6 +304,9 @@ export function Buyers() {
                     </Select>
                     <Btn size="sm" variant="ghost" disabled={busy} onClick={() => patch(b.id, { depositPaid: !b.deposit_paid })}>
                       {b.deposit_paid ? t('buyers.clearDeposit') : t('buyers.markDeposit')}
+                    </Btn>
+                    <Btn size="sm" variant="ghost" onClick={() => setMatchFor(b)}>
+                      {b.puppy_id ? t('buyers.rematch') : t('buyers.matchPuppy')}
                     </Btn>
                     <Btn size="sm" variant="ghost" onClick={() => { setMsgFor(b); setDm({ subject: '', body: '' }); }}>
                       {t('buyers.messageBtn')}
@@ -357,5 +377,66 @@ export function Buyers() {
         {papersFor && <DocumentsPanel subjectType="buyer" subjectId={papersFor.id} defaultKind="contract" generate />}
       </Drawer>
     </div>
+  );
+}
+
+function MatchForm({
+  buyer,
+  litters,
+  busy,
+  onCancel,
+  onMatch,
+  onUnmatch,
+}: {
+  buyer: Buyer;
+  litters: Litter[];
+  busy: boolean;
+  onCancel: () => void;
+  onMatch: (puppyId: string) => void;
+  onUnmatch: () => void;
+}) {
+  const { t, label } = useT();
+  const [litterId, setLitterId] = useState(buyer.wants_litter_id ?? litters[0]?.id ?? '');
+  const [pupId, setPupId] = useState(buyer.puppy_id ?? '');
+  const pups = useQuery<{ puppies: Array<{ id: string; name: string; status: string }> }>(
+    litterId ? `/breeder/litters/${litterId}/puppies` : null
+  );
+  const list = pups.data?.puppies ?? [];
+
+  return (
+    <Card className="p-4">
+      <h2 className="mb-3 font-medium text-slate-200">{t('buyers.matchTitle', { name: buyer.name })}</h2>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Field label={t('buyers.litter')}>
+          <Select
+            value={litterId}
+            onChange={(e) => {
+              setLitterId(e.target.value);
+              setPupId('');
+            }}
+          >
+            <option value="">—</option>
+            {litters.map((l) => (
+              <option key={l.id} value={l.id}>{l.name || `${l.dam_name ?? t('common.dam')} × ${l.sire_name ?? t('common.sire')}`}</option>
+            ))}
+          </Select>
+        </Field>
+        <Field label={t('buyers.puppy')}>
+          <Select value={pupId} onChange={(e) => setPupId(e.target.value)} disabled={!litterId}>
+            <option value="">—</option>
+            {list.map((p) => (
+              <option key={p.id} value={p.id}>{p.name} ({label('puppyStatus', p.status)})</option>
+            ))}
+          </Select>
+        </Field>
+      </div>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <Btn variant="primary" disabled={busy || !pupId} onClick={() => onMatch(pupId)}>{t('buyers.match')}</Btn>
+        {buyer.puppy_id && (
+          <Btn variant="ghost" disabled={busy} onClick={onUnmatch}>{t('buyers.unmatch')}</Btn>
+        )}
+        <Btn variant="ghost" onClick={onCancel}>{t('common.cancel')}</Btn>
+      </div>
+    </Card>
   );
 }

@@ -87,11 +87,23 @@ export function Animals() {
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {animals.map((a) => (
-            <button key={a.id} className="text-left" onClick={() => setOpenId(a.id)}>
+            <button
+              key={a.id}
+              type="button"
+              className="text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-400"
+              onClick={() => setOpenId(a.id)}
+              aria-label={t('animals.openDog', { name: a.name })}
+            >
               <Card className="p-4 transition-colors hover:border-slate-700">
                 <div className="flex items-center justify-between">
                   <span className="font-medium text-slate-100">{a.name}</span>
-                  <span className="text-xs text-slate-500">{a.sex === 'male' ? '♂' : a.sex === 'female' ? '♀' : ''}</span>
+                  <span className="text-xs text-slate-400">
+                    {a.sex === 'male' ? (
+                      <span title={t('common.male')}>♂<span className="sr-only"> {t('common.male')}</span></span>
+                    ) : a.sex === 'female' ? (
+                      <span title={t('common.female')}>♀<span className="sr-only"> {t('common.female')}</span></span>
+                    ) : ''}
+                  </span>
                 </div>
                 <div className="mt-1 flex flex-wrap gap-1.5">
                   <Badge className="bg-slate-800 text-slate-300 ring-slate-700">{label('role', a.role)}</Badge>
@@ -156,7 +168,7 @@ function AnimalDetail({ id }: { id: string }) {
   const detail = useQuery<{ animal: Animal; carePlan: CarePlan | null }>(`/breeder/animals/${id}`);
   const growth = useQuery<{ curve: Array<Record<string, number>>; adultTrend: unknown }>(`/breeder/animals/${id}/growth`);
   const [run, busy] = useMutation();
-  const [tab, setTab] = useState<'plan' | 'weight' | 'pedigree' | 'papers'>('plan');
+  const [tab, setTab] = useState<'plan' | 'weight' | 'wellness' | 'pedigree' | 'papers'>('plan');
   const [grams, setGrams] = useState('');
   const [plan, setPlan] = useState<Partial<CarePlan>>({});
 
@@ -199,15 +211,16 @@ function AnimalDetail({ id }: { id: string }) {
 
   return (
     <div className="space-y-4 text-sm">
-      <div className="flex flex-wrap gap-1">
-        <Btn size="sm" variant={tab === 'plan' ? 'primary' : 'ghost'} onClick={() => setTab('plan')}>{t('animals.carePlan')}</Btn>
-        <Btn size="sm" variant={tab === 'weight' ? 'primary' : 'ghost'} onClick={() => setTab('weight')}>{t('animals.weightGrowth')}</Btn>
-        <Btn size="sm" variant={tab === 'pedigree' ? 'primary' : 'ghost'} onClick={() => setTab('pedigree')}>{t('animals.pedigree')}</Btn>
-        <Btn size="sm" variant={tab === 'papers' ? 'primary' : 'ghost'} onClick={() => setTab('papers')}>{t('animals.papers')}</Btn>
+      <div className="flex flex-wrap gap-1" role="tablist" aria-label={t('animals.tabsAria')}>
+        <Btn size="sm" role="tab" aria-selected={tab === 'plan'} variant={tab === 'plan' ? 'primary' : 'ghost'} onClick={() => setTab('plan')}>{t('animals.carePlan')}</Btn>
+        <Btn size="sm" role="tab" aria-selected={tab === 'weight'} variant={tab === 'weight' ? 'primary' : 'ghost'} onClick={() => setTab('weight')}>{t('animals.weightGrowth')}</Btn>
+        <Btn size="sm" role="tab" aria-selected={tab === 'wellness'} variant={tab === 'wellness' ? 'primary' : 'ghost'} onClick={() => setTab('wellness')}>{t('animals.wellness')}</Btn>
+        <Btn size="sm" role="tab" aria-selected={tab === 'pedigree'} variant={tab === 'pedigree' ? 'primary' : 'ghost'} onClick={() => setTab('pedigree')}>{t('animals.pedigree')}</Btn>
+        <Btn size="sm" role="tab" aria-selected={tab === 'papers'} variant={tab === 'papers' ? 'primary' : 'ghost'} onClick={() => setTab('papers')}>{t('animals.papers')}</Btn>
       </div>
 
       {tab === 'plan' && (
-        <div className="space-y-3">
+        <div className="space-y-3" role="tabpanel">
           <div className="grid grid-cols-2 gap-3">
             <Field label={t('animals.foodSku')}><Input value={merged.food_sku ?? ''} onChange={(e) => setPlan({ ...plan, food_sku: e.target.value })} /></Field>
             <Field label={t('animals.gramsDay')}><Input type="number" value={merged.grams_per_day ?? ''} onChange={(e) => setPlan({ ...plan, grams_per_day: Number(e.target.value) })} /></Field>
@@ -227,7 +240,7 @@ function AnimalDetail({ id }: { id: string }) {
       )}
 
       {tab === 'weight' && (
-        <div className="space-y-4">
+        <div className="space-y-4" role="tabpanel">
           <div className="flex items-end gap-2">
             <Field label={t('animals.newWeight')}><Input type="number" value={grams} onChange={(e) => setGrams(e.target.value)} /></Field>
             <Btn variant="primary" disabled={busy || !grams} onClick={addWeight}>{t('common.log')}</Btn>
@@ -252,8 +265,58 @@ function AnimalDetail({ id }: { id: string }) {
         </div>
       )}
 
+      {tab === 'wellness' && (
+        <div role="tabpanel">
+          <WellnessPanel id={id} />
+        </div>
+      )}
       {tab === 'pedigree' && <PedigreePanel id={id} />}
       {tab === 'papers' && <DocumentsPanel subjectType="animal" subjectId={id} defaultKind="registration" />}
+    </div>
+  );
+}
+
+interface Insight {
+  metric: 'food' | 'water' | 'activity' | 'weight';
+  level: 'info' | 'watch' | 'concern';
+  message: string;
+  changePct?: number;
+}
+
+const INSIGHT_TONE: Record<Insight['level'], string> = {
+  info: 'bg-sky-500/15 text-sky-300 ring-sky-500/30',
+  watch: 'bg-amber-500/15 text-amber-300 ring-amber-500/30',
+  concern: 'bg-rose-500/15 text-rose-300 ring-rose-500/30',
+};
+
+function WellnessPanel({ id }: { id: string }) {
+  const { t, label } = useT();
+  const q = useQuery<{ insights: Insight[] }>(`/breeder/animals/${id}/wellness`);
+  if (q.loading && !q.data) return <Spinner />;
+  if (q.error) return <p className="text-sm text-rose-300">{q.error}</p>;
+  const insights = q.data?.insights ?? [];
+
+  return (
+    <div className="space-y-3">
+      <p className="text-xs text-slate-400">{t('animals.wellnessHint')}</p>
+      {insights.length === 0 ? (
+        <p className="text-slate-400">{t('animals.noWellness')}</p>
+      ) : (
+        <ul className="space-y-2">
+          {insights.map((ins, i) => (
+            <li key={`${ins.metric}-${i}`} className="rounded-lg border border-slate-800 p-3">
+              <div className="mb-1 flex flex-wrap items-center gap-2">
+                <Badge className={INSIGHT_TONE[ins.level]}>{label('insightLevel', ins.level)}</Badge>
+                <span className="text-xs text-slate-400">{label('insightMetric', ins.metric)}</span>
+                {ins.changePct != null && (
+                  <span className="text-xs text-slate-500">{ins.changePct > 0 ? '+' : ''}{ins.changePct}%</span>
+                )}
+              </div>
+              <p className="text-slate-200">{ins.message}</p>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
@@ -284,7 +347,7 @@ function PedigreePanel({ id }: { id: string }) {
   const hasParents = !!(root.sire || root.dam);
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3" role="tabpanel">
       {!hasParents && (
         <p className="text-xs text-slate-400">
           {t('animals.noParents')}

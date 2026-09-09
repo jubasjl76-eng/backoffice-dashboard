@@ -54,7 +54,7 @@ export function Login() {
             required
           />
         </Field>
-        {err && <p className="text-sm text-rose-400">{err}</p>}
+        {err && <p className="text-sm text-rose-400" role="alert">{err}</p>}
         <Btn type="submit" variant="primary" className="w-full" disabled={busy}>
           {busy ? t('login.busy') : t('login.submit')}
         </Btn>

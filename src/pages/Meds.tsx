@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Badge, Btn, Card, EmptyState, Field, Input, PageHeader, Select, Spinner } from '../components/ui';
+import { Badge, Btn, Card, Drawer, EmptyState, Field, Input, PageHeader, Select, Spinner } from '../components/ui';
 import { useT } from '../i18n';
 import { api } from '../lib/api';
 import { bcp47 } from '../lib/format';
@@ -49,6 +49,7 @@ export function Meds() {
   const animals = useQuery<{ animals: Animal[] }>('/breeder/animals');
   const [run, busy] = useMutation();
   const [adding, setAdding] = useState(false);
+  const [compId, setCompId] = useState<string | null>(null);
   const [form, setForm] = useState({ animalId: '', name: '', dose: '', route: 'oral', times: '08:00,20:00', instructions: '' });
 
   async function log(d: DueDose, outcome: 'given' | 'skipped' | 'refused') {
@@ -100,6 +101,7 @@ export function Meds() {
 
   const dueList = due.data?.due ?? [];
   const medList = meds.data?.medications ?? [];
+  const openMed = medList.find((m) => m.id === compId);
 
   return (
     <div className="space-y-6">
@@ -192,6 +194,7 @@ export function Meds() {
                 {m.instructions && <span className="text-xs text-slate-600">— {m.instructions}</span>}
                 <span className="ml-auto flex items-center gap-2">
                   {!m.active && <Badge className="bg-slate-700/40 text-slate-400 ring-slate-600/40">{t('common.inactive')}</Badge>}
+                  <Btn size="sm" variant="ghost" onClick={() => setCompId(m.id)}>{t('meds.compliance')}</Btn>
                   <Btn size="sm" variant="ghost" disabled={busy} onClick={() => toggleActive(m)}>
                     {m.active ? t('meds.deactivate') : t('meds.reactivate')}
                   </Btn>
@@ -201,6 +204,67 @@ export function Meds() {
           </ul>
         )}
       </Card>
+
+      <Drawer
+        open={!!compId}
+        onClose={() => setCompId(null)}
+        title={t('meds.complianceTitle', { name: openMed?.name ?? t('meds.medication') })}
+      >
+        {compId && <CompliancePanel id={compId} />}
+      </Drawer>
+    </div>
+  );
+}
+
+interface Compliance {
+  scheduled: number;
+  given: number;
+  skipped: number;
+  missed: number;
+  rate: number;
+}
+
+function CompliancePanel({ id }: { id: string }) {
+  const { t, locale } = useT();
+  const q = useQuery<{ compliance: Compliance; missedRecent: string[] }>(`/breeder/medications/${id}/compliance`);
+  if (q.loading && !q.data) return <Spinner />;
+  if (q.error) return <p className="text-sm text-rose-300">{q.error}</p>;
+  const c = q.data?.compliance;
+  if (!c) return <p className="text-sm text-slate-400">{t('meds.noCompliance')}</p>;
+  const pct = Math.round(c.rate * 100);
+
+  return (
+    <div className="space-y-4 text-sm">
+      <p className="text-xs text-slate-400">{t('meds.complianceHint')}</p>
+      <div className="grid grid-cols-2 gap-2">
+        <Card className="p-3">
+          <div className="text-xs text-slate-400">{t('meds.rate')}</div>
+          <div className={`mt-1 text-2xl font-semibold ${pct < 80 ? 'text-rose-300' : 'text-emerald-300'}`}>{pct}%</div>
+        </Card>
+        <Card className="p-3">
+          <div className="text-xs text-slate-400">{t('meds.scheduled')}</div>
+          <div className="mt-1 text-2xl font-semibold text-slate-100">{c.scheduled}</div>
+        </Card>
+        <Card className="p-3">
+          <div className="text-xs text-slate-400">{t('common.given')}</div>
+          <div className="mt-1 text-2xl font-semibold text-slate-100">{c.given}</div>
+        </Card>
+        <Card className="p-3">
+          <div className="text-xs text-slate-400">{t('meds.missed')}</div>
+          <div className={`mt-1 text-2xl font-semibold ${c.missed ? 'text-rose-300' : 'text-slate-100'}`}>{c.missed}</div>
+        </Card>
+      </div>
+      <p className="text-xs text-slate-400">{t('meds.skippedCount', { n: c.skipped })}</p>
+      {(q.data?.missedRecent ?? []).length > 0 && (
+        <div>
+          <div className="mb-1 text-xs uppercase tracking-wide text-slate-400">{t('meds.recentlyMissed')}</div>
+          <ul className="space-y-1 text-xs text-slate-300">
+            {q.data!.missedRecent.slice(0, 8).map((iso) => (
+              <li key={iso}>{new Date(iso).toLocaleString(bcp47(locale))}</li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }
