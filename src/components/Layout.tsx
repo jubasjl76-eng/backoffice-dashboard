@@ -10,6 +10,7 @@ const NAV = [
   { to: '/animals', label: 'Animals', icon: '🐕' },
   { to: '/pens', label: 'Pens', icon: '▦' },
   { to: '/litters', label: 'Litters', icon: '⬢' },
+  { to: '/calendar', label: 'Calendar', icon: '📅' },
   { to: '/buyers', label: 'Buyers', icon: '👥' },
   { to: '/meds', label: 'Medications', icon: '💊' },
   { to: '/vaccinations', label: 'Vaccinations', icon: '💉' },
