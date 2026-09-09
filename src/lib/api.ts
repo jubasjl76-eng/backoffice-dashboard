@@ -112,6 +112,62 @@ export async function api<T = unknown>(
   return data as T;
 }
 
+async function authHeaders(): Promise<HeadersInit> {
+  const headers: Record<string, string> = {};
+  if (session?.accessToken) headers.authorization = `Bearer ${session.accessToken}`;
+  return headers;
+}
+
+/** Multipart upload (do not set content-type — the boundary is the browser's). */
+export async function apiUpload<T = unknown>(path: string, form: FormData, retry = true): Promise<T> {
+  const res = await fetch(`${BASE}${path}`, { method: 'POST', headers: await authHeaders(), body: form });
+  if (res.status === 401 && retry && (await doRefresh())) return apiUpload(path, form, false);
+  if (res.status === 401) {
+    persist(null);
+    throw new ApiError(401, 'Session expired');
+  }
+  const text = await res.text();
+  const data = text ? safeJson(text) : null;
+  if (!res.ok) throw new ApiError(res.status, (data && (data.error || data.message)) || res.statusText, data);
+  return data as T;
+}
+
+async function fetchBlob(path: string, retry = true): Promise<Blob> {
+  const res = await fetch(`${BASE}${path}`, { headers: await authHeaders() });
+  if (res.status === 401) {
+    if (retry && (await doRefresh())) return fetchBlob(path, false);
+    persist(null);
+    throw new ApiError(401, 'Session expired');
+  }
+  if (!res.ok) {
+    const text = await res.text();
+    const data = text ? safeJson(text) : null;
+    throw new ApiError(res.status, (data && (data.error || data.message)) || res.statusText, data);
+  }
+  return res.blob();
+}
+
+/** Trigger a file download for an authenticated path. */
+export async function apiDownload(path: string, filename: string): Promise<void> {
+  const blob = await fetchBlob(path);
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.rel = 'noopener';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+/** Open an authenticated file in a new tab (preview). */
+export async function apiOpen(path: string): Promise<void> {
+  const blob = await fetchBlob(path);
+  const url = URL.createObjectURL(blob);
+  window.open(url, '_blank', 'noopener');
+}
+
 function safeJson(t: string) {
   try {
     return JSON.parse(t);

@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { api } from '../lib/api';
 import { useQuery, useMutation } from '../lib/useApi';
-import { Badge, Btn, Card, EmptyState, Field, Input, PageHeader, Select, Spinner } from '../components/ui';
+import { Badge, Btn, Card, Drawer, EmptyState, Field, Input, PageHeader, Select, Spinner } from '../components/ui';
+import { DocumentsPanel } from '../components/Documents';
 import { shortDate, timeAgo, titleCase } from '../lib/format';
 
 interface Buyer {
@@ -67,6 +68,7 @@ export function Buyers() {
   const [bc, setBc] = useState({ subject: '', body: '', litterId: '', status: '' });
   const [msgFor, setMsgFor] = useState<Buyer | null>(null);
   const [dm, setDm] = useState({ subject: '', body: '' });
+  const [papersFor, setPapersFor] = useState<Buyer | null>(null);
 
   async function create() {
     const r = await run(() =>
@@ -287,6 +289,7 @@ export function Buyers() {
                     <Btn size="sm" variant="ghost" onClick={() => { setMsgFor(b); setDm({ subject: '', body: '' }); }}>
                       Message
                     </Btn>
+                    <Btn size="sm" variant="ghost" onClick={() => setPapersFor(b)}>Papers</Btn>
                     {b.puppy_id && (
                       <Btn size="sm" variant="ghost" disabled={busy} onClick={() => togglePack(b)}>
                         {sub?.active ? 'Stop weekly pack' : 'Weekly pack'}
@@ -348,6 +351,9 @@ export function Buyers() {
           </ul>
         )}
       </Card>
+      <Drawer open={!!papersFor} onClose={() => setPapersFor(null)} title={papersFor ? `${papersFor.name} · papers` : 'Papers'}>
+        {papersFor && <DocumentsPanel subjectType="buyer" subjectId={papersFor.id} defaultKind="contract" />}
+      </Drawer>
     </div>
   );
 }

@@ -2,9 +2,10 @@ import { useState } from 'react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from 'recharts';
-import { api } from '../lib/api';
+import { api, apiOpen } from '../lib/api';
 import { useQuery, useMutation } from '../lib/useApi';
 import { Badge, Btn, Card, Drawer, EmptyState, Field, Input, PageHeader, Select, Spinner } from '../components/ui';
+import { DocumentsPanel } from '../components/Documents';
 import { shortDate, titleCase } from '../lib/format';
 
 interface Animal {
@@ -18,6 +19,10 @@ interface Animal {
   breed: string | null;
   adult_weight_kg: number | null;
   pen_name: string | null;
+  registration_no: string | null;
+  microchip: string | null;
+  sire_id: string | null;
+  dam_id: string | null;
 }
 interface CarePlan {
   food_sku: string | null;
@@ -37,7 +42,10 @@ export function Animals() {
   const [run, busy] = useMutation();
   const [openId, setOpenId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
-  const [form, setForm] = useState({ name: '', sex: 'female', role: 'breeding', adultWeightKg: '', dob: '' });
+  const [form, setForm] = useState({
+    name: '', sex: 'female', role: 'breeding', adultWeightKg: '', dob: '',
+    registrationNo: '', sireId: '', damId: '',
+  });
 
   async function create() {
     const r = await run(() =>
@@ -49,12 +57,15 @@ export function Animals() {
           role: form.role,
           adultWeightKg: form.adultWeightKg ? Number(form.adultWeightKg) : undefined,
           dob: form.dob || undefined,
+          registrationNo: form.registrationNo || undefined,
+          sireId: form.sireId || undefined,
+          damId: form.damId || undefined,
         },
       })
     );
     if (r) {
       setAdding(false);
-      setForm({ name: '', sex: 'female', role: 'breeding', adultWeightKg: '', dob: '' });
+      setForm({ name: '', sex: 'female', role: 'breeding', adultWeightKg: '', dob: '', registrationNo: '', sireId: '', damId: '' });
       q.reload();
     }
   }
@@ -114,6 +125,19 @@ export function Animals() {
             <Input type="number" value={form.adultWeightKg} onChange={(e) => setForm({ ...form, adultWeightKg: e.target.value })} />
           </Field>
           <Field label="Date of birth"><Input type="date" value={form.dob} onChange={(e) => setForm({ ...form, dob: e.target.value })} /></Field>
+          <Field label="Registration no."><Input value={form.registrationNo} onChange={(e) => setForm({ ...form, registrationNo: e.target.value })} /></Field>
+          <Field label="Sire">
+            <Select value={form.sireId} onChange={(e) => setForm({ ...form, sireId: e.target.value })}>
+              <option value="">—</option>
+              {animals.filter((a) => a.sex === 'male').map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+            </Select>
+          </Field>
+          <Field label="Dam">
+            <Select value={form.damId} onChange={(e) => setForm({ ...form, damId: e.target.value })}>
+              <option value="">—</option>
+              {animals.filter((a) => a.sex === 'female').map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+            </Select>
+          </Field>
           <Btn variant="primary" disabled={busy || !form.name} onClick={create}>Save</Btn>
         </div>
       </Drawer>
@@ -129,7 +153,7 @@ function AnimalDetail({ id }: { id: string }) {
   const detail = useQuery<{ animal: Animal; carePlan: CarePlan | null }>(`/breeder/animals/${id}`);
   const growth = useQuery<{ curve: Array<Record<string, number>>; adultTrend: unknown }>(`/breeder/animals/${id}/growth`);
   const [run, busy] = useMutation();
-  const [tab, setTab] = useState<'plan' | 'weight'>('plan');
+  const [tab, setTab] = useState<'plan' | 'weight' | 'pedigree' | 'papers'>('plan');
   const [grams, setGrams] = useState('');
   const [plan, setPlan] = useState<Partial<CarePlan>>({});
 
@@ -172,12 +196,14 @@ function AnimalDetail({ id }: { id: string }) {
 
   return (
     <div className="space-y-4 text-sm">
-      <div className="flex gap-1">
+      <div className="flex flex-wrap gap-1">
         <Btn size="sm" variant={tab === 'plan' ? 'primary' : 'ghost'} onClick={() => setTab('plan')}>Care plan</Btn>
         <Btn size="sm" variant={tab === 'weight' ? 'primary' : 'ghost'} onClick={() => setTab('weight')}>Weight & growth</Btn>
+        <Btn size="sm" variant={tab === 'pedigree' ? 'primary' : 'ghost'} onClick={() => setTab('pedigree')}>Pedigree</Btn>
+        <Btn size="sm" variant={tab === 'papers' ? 'primary' : 'ghost'} onClick={() => setTab('papers')}>Papers</Btn>
       </div>
 
-      {tab === 'plan' ? (
+      {tab === 'plan' && (
         <div className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <Field label="Food SKU"><Input value={merged.food_sku ?? ''} onChange={(e) => setPlan({ ...plan, food_sku: e.target.value })} /></Field>
@@ -195,7 +221,9 @@ function AnimalDetail({ id }: { id: string }) {
           <Field label="Notes"><Input value={merged.notes ?? ''} onChange={(e) => setPlan({ ...plan, notes: e.target.value })} /></Field>
           <Btn variant="primary" disabled={busy} onClick={savePlan}>Save care plan</Btn>
         </div>
-      ) : (
+      )}
+
+      {tab === 'weight' && (
         <div className="space-y-4">
           <div className="flex items-end gap-2">
             <Field label="New weight (grams)"><Input type="number" value={grams} onChange={(e) => setGrams(e.target.value)} /></Field>
@@ -219,6 +247,86 @@ function AnimalDetail({ id }: { id: string }) {
             )}
           </div>
         </div>
+      )}
+
+      {tab === 'pedigree' && <PedigreePanel id={id} />}
+      {tab === 'papers' && <DocumentsPanel subjectType="animal" subjectId={id} defaultKind="registration" />}
+    </div>
+  );
+}
+
+interface PedigreeNode {
+  id: string;
+  name: string;
+  sex: string | null;
+  breed: string | null;
+  registrationNo: string | null;
+  sire: PedigreeNode | null;
+  dam: PedigreeNode | null;
+}
+
+function PedigreePanel({ id }: { id: string }) {
+  const tree = useQuery<{ pedigree: PedigreeNode; generations: number }>(`/breeder/animals/${id}/pedigree?generations=4`);
+  const papers = useQuery<{ documents: Array<{ id: string; subject_id: string | null; title: string | null; filename: string | null }> }>(
+    '/breeder/documents?kind=registration&subjectType=animal'
+  );
+  const [run] = useMutation();
+
+  if (tree.loading && !tree.data) return <Spinner />;
+  if (tree.error || !tree.data?.pedigree) return <p className="text-sm text-rose-300">{tree.error ?? 'No pedigree'}</p>;
+
+  const bySubject = new Map((papers.data?.documents ?? []).map((d) => [d.subject_id, d]));
+  const root = tree.data.pedigree;
+  const hasParents = !!(root.sire || root.dam);
+
+  return (
+    <div className="space-y-3">
+      {!hasParents && (
+        <p className="text-xs text-slate-400">
+          No sire or dam on this record yet. Set them when you add a dog — the tree walks those links up to four generations.
+        </p>
+      )}
+      <PedigreeBranch node={root} papers={bySubject} depth={0} onOpen={(docId) => run(() => apiOpen(`/breeder/documents/${docId}/download`))} />
+    </div>
+  );
+}
+
+function PedigreeBranch({
+  node,
+  papers,
+  depth,
+  onOpen,
+}: {
+  node: PedigreeNode;
+  papers: Map<string | null, { id: string; title: string | null; filename: string | null }>;
+  depth: number;
+  onOpen: (id: string) => void;
+}) {
+  const paper = papers.get(node.id);
+  return (
+    <div className={depth ? 'ml-3 border-l border-slate-800 pl-3' : ''}>
+      <div className="flex flex-wrap items-center gap-2 py-1">
+        <span className="font-medium text-slate-100">{node.name}</span>
+        {node.sex && <span className="text-xs text-slate-400">{node.sex === 'male' ? '♂' : node.sex === 'female' ? '♀' : node.sex}</span>}
+        {node.breed && <span className="text-xs text-slate-500">{node.breed}</span>}
+        {node.registrationNo && <span className="text-xs text-slate-400">{node.registrationNo}</span>}
+        {paper && (
+          <Btn size="sm" variant="ghost" onClick={() => onOpen(paper.id)}>
+            Registration
+          </Btn>
+        )}
+      </div>
+      {node.sire && (
+        <>
+          {depth === 0 && <div className="mt-1 text-[10px] uppercase tracking-wide text-slate-500">Sire</div>}
+          <PedigreeBranch node={node.sire} papers={papers} depth={depth + 1} onOpen={onOpen} />
+        </>
+      )}
+      {node.dam && (
+        <>
+          {depth === 0 && <div className="mt-1 text-[10px] uppercase tracking-wide text-slate-500">Dam</div>}
+          <PedigreeBranch node={node.dam} papers={papers} depth={depth + 1} onOpen={onOpen} />
+        </>
       )}
     </div>
   );
