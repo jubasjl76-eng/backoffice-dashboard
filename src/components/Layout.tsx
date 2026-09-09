@@ -16,6 +16,7 @@ const NAV = [
   { to: '/vaccinations', label: 'Vaccinations', icon: '💉' },
   { to: '/rules', label: 'Rules', icon: '⚙' },
   { to: '/devices', label: 'Devices', icon: '📟' },
+  { to: '/fleet', label: 'Fleet', icon: '📡' },
   { to: '/ops', label: 'Ops', icon: '🛠' },
   { to: '/website', label: 'Website', icon: '🌐' },
   { to: '/templates', label: 'Templates', icon: '📄' },

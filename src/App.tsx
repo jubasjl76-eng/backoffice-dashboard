@@ -11,6 +11,7 @@ import { Buyers } from './pages/Buyers';
 import { Meds } from './pages/Meds';
 import { Rules } from './pages/Rules';
 import { Devices } from './pages/Devices';
+import { Fleet } from './pages/Fleet';
 import { Ops } from './pages/Ops';
 import { Website } from './pages/Website';
 import { Settings } from './pages/Settings';
@@ -47,6 +48,7 @@ export default function App() {
             <Route path="/go-home/:pupId" element={<GoHomePack />} />
             <Route path="/rules" element={<Rules />} />
             <Route path="/devices" element={<Devices />} />
+            <Route path="/fleet" element={<Fleet />} />
             <Route path="/ops" element={<Ops />} />
             <Route path="/website" element={<Website />} />
             <Route path="/notifications" element={<Notifications />} />
