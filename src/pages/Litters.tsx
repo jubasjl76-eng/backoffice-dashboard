@@ -5,6 +5,7 @@ import { api } from '../lib/api';
 import { useQuery, useMutation } from '../lib/useApi';
 import { Badge, Btn, Card, Drawer, EmptyState, Field, Input, PageHeader, Select, Spinner } from '../components/ui';
 import { shortDate, titleCase } from '../lib/format';
+import { ProgesteroneForm, RecordMating } from './Calendar';
 
 interface Litter {
   id: string;
@@ -13,6 +14,8 @@ interface Litter {
   dam_name: string | null;
   sire_name: string | null;
   due_on: string | null;
+  mated_on: string | null;
+  mating_method: string | null;
   whelped_at: string | null;
   puppy_count: number;
   available_count: number;
@@ -37,6 +40,7 @@ interface Puppy {
 
 const STATUS_TONE: Record<string, string> = {
   planned: 'bg-slate-800 text-slate-300 ring-slate-700',
+  expecting: 'bg-sky-500/10 text-sky-300 ring-sky-500/30',
   mated: 'bg-sky-500/10 text-sky-300 ring-sky-500/30',
   whelped: 'bg-emerald-500/10 text-emerald-300 ring-emerald-500/30',
   nursing: 'bg-emerald-500/10 text-emerald-300 ring-emerald-500/30',
@@ -50,6 +54,8 @@ export function Litters() {
   const [run, busy] = useMutation();
   const [adding, setAdding] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
+  const [mateId, setMateId] = useState<string | null>(null);
+  const [progId, setProgId] = useState<string | null>(null);
   const [form, setForm] = useState({ name: '', damId: '', sireId: '', dueOn: '' });
 
   async function create() {
@@ -88,6 +94,7 @@ export function Litters() {
   return (
     <div className="space-y-5">
       <PageHeader title="Litters">
+        <Link to="/calendar" className="text-sm text-indigo-400 hover:text-indigo-300">Calendar →</Link>
         <Btn variant="primary" onClick={() => setAdding(true)}>Plan litter</Btn>
       </PageHeader>
 
@@ -107,11 +114,17 @@ export function Litters() {
                   </div>
                   <div className="mt-0.5 flex flex-wrap gap-x-3 text-xs text-slate-500">
                     <span>{l.dam_name ?? '?'} × {l.sire_name ?? '?'}</span>
-                    {l.whelped_at ? <span>whelped {shortDate(l.whelped_at)}</span> : l.due_on ? <span>due {shortDate(l.due_on)}</span> : null}
+                    {l.whelped_at ? <span>whelped {shortDate(l.whelped_at)}</span> : l.due_on ? <span>due {shortDate(l.due_on)}</span> : l.mated_on ? <span>mated {shortDate(l.mated_on)}</span> : null}
                     <span>{l.puppy_count} pups · {l.available_count} available · {l.placed_count} placed</span>
                   </div>
                 </button>
-                {['planned', 'mated'].includes(l.status) && (
+                {l.status === 'planned' && !l.mated_on && (
+                  <Btn size="sm" variant="primary" onClick={() => setMateId(l.id)}>Record mating</Btn>
+                )}
+                {(['expecting', 'mated'].includes(l.status) || l.mated_on) && !l.whelped_at && (
+                  <Btn size="sm" variant="ghost" onClick={() => setProgId(l.id)}>Progesterone</Btn>
+                )}
+                {['planned', 'expecting', 'mated'].includes(l.status) && (
                   <Btn size="sm" disabled={busy} onClick={() => whelp(l)}>Mark whelped</Btn>
                 )}
               </Card>
@@ -142,6 +155,20 @@ export function Litters() {
 
       <Drawer open={!!openId} onClose={() => setOpenId(null)} title="Puppies">
         {openId && <LitterPuppies litterId={openId} />}
+      </Drawer>
+      <Drawer open={!!mateId} onClose={() => setMateId(null)} title="Record mating">
+        {mateId && (
+          <RecordMating
+            litterId={mateId}
+            onDone={() => {
+              setMateId(null);
+              q.reload();
+            }}
+          />
+        )}
+      </Drawer>
+      <Drawer open={!!progId} onClose={() => setProgId(null)} title="Progesterone">
+        {progId && <ProgesteroneForm litterId={progId} onDone={() => q.reload()} />}
       </Drawer>
     </div>
   );

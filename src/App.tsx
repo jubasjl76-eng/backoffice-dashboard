@@ -17,6 +17,7 @@ import { Settings } from './pages/Settings';
 import { Notifications } from './pages/Notifications';
 import { Vaccinations } from './pages/Vaccinations';
 import { GoHomePack } from './pages/GoHomePack';
+import { Calendar } from './pages/Calendar';
 
 export default function App() {
   return (
@@ -36,6 +37,7 @@ export default function App() {
             <Route path="/animals" element={<Animals />} />
             <Route path="/pens" element={<Pens />} />
             <Route path="/litters" element={<Litters />} />
+            <Route path="/calendar" element={<Calendar />} />
             <Route path="/buyers" element={<Buyers />} />
             <Route path="/meds" element={<Meds />} />
             <Route path="/vaccinations" element={<Vaccinations />} />

@@ -46,6 +46,10 @@ export function Dashboard() {
   const consumables = useQuery<{ consumables: Array<{ id: string; name: string; status: { level: string; message: string } }> }>(
     '/breeder/ops/consumables'
   );
+  const breeding = useQuery<{
+    heats: Array<{ predictedNextHeat: string | null }>;
+    litters: Array<{ due_on: string | null; whelped_at: string | null }>;
+  }>('/breeder/breeding/calendar');
 
   // Live: refresh the inbox strip whenever something lands.
   useStream((e) => {
@@ -68,18 +72,22 @@ export function Dashboard() {
   const lowConsumables = consumables.data?.consumables.filter((c) => c.status.level !== 'ok') ?? [];
   const activeLitters = litters.data?.litters.filter((l) => ['whelped', 'nursing', 'weaning'].includes(l.status)) ?? [];
   const availablePups = litters.data?.litters.reduce((n, l) => n + (l.available_count ?? 0), 0) ?? 0;
+  const onCalendar =
+    (breeding.data?.heats.filter((h) => h.predictedNextHeat).length ?? 0) +
+    (breeding.data?.litters.filter((l) => l.due_on && !l.whelped_at).length ?? 0);
 
   return (
     <div className="space-y-6">
       <PageHeader title="Today" />
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
         <Stat label="Open care items" value={inbox.data?.counts.open ?? '—'} tone={inbox.data?.counts.open ? 'amber' : 'slate'} to="/inbox" />
         <Stat label="Critical" value={inbox.data?.counts.critical ?? '—'} tone={inbox.data?.counts.critical ? 'rose' : 'slate'} to="/inbox" />
         <Stat label="Devices online" value={totalDev ? `${online}/${totalDev}` : '—'} tone={totalDev && online < totalDev ? 'amber' : 'emerald'} to="/devices" />
         <Stat label="Doses due (24h)" value={due.data?.due.length ?? '—'} tone={due.data?.due.length ? 'sky' : 'slate'} to="/meds" />
         <Stat label="Active litters" value={activeLitters.length} tone="slate" to="/litters" />
         <Stat label="Pups available" value={availablePups} tone="slate" to="/buyers" />
+        <Stat label="On the calendar" value={breeding.data ? onCalendar : '—'} tone={onCalendar ? 'amber' : 'slate'} to="/calendar" />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
