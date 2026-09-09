@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { api } from '../lib/api';
 import { useQuery, useMutation } from '../lib/useApi';
 import { useStream } from '../lib/stream';
@@ -42,6 +43,8 @@ const FILTERS = [
 export function CareInbox() {
   const [filter, setFilter] = useState('active');
   const q = useQuery<InboxResp>(`/breeder/inbox?status=${filter}`);
+  const overdueVax = useQuery<{ records: { id: string }[] }>('/breeder/vaccinations?status=overdue');
+  const overdueN = overdueVax.data?.records.length ?? 0;
   const [run, busy] = useMutation();
   const [openId, setOpenId] = useState<string | null>(null);
 
@@ -67,6 +70,11 @@ export function CareInbox() {
           <span><b className="text-slate-200">{q.data?.counts.open ?? 0}</b> open</span>
           <span><b className="text-rose-300">{q.data?.counts.critical ?? 0}</b> critical</span>
           <span><b className="text-slate-200">{q.data?.counts.snoozed ?? 0}</b> snoozed</span>
+          {overdueN > 0 && (
+            <Link to="/vaccinations" className="text-rose-300 hover:underline">
+              <b>{overdueN}</b> vaccinations overdue
+            </Link>
+          )}
         </div>
       </PageHeader>
 

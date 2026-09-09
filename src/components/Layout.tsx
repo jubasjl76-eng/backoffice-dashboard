@@ -12,6 +12,7 @@ const NAV = [
   { to: '/litters', label: 'Litters', icon: '⬢' },
   { to: '/buyers', label: 'Buyers', icon: '👥' },
   { to: '/meds', label: 'Medications', icon: '💊' },
+  { to: '/vaccinations', label: 'Vaccinations', icon: '💉' },
   { to: '/rules', label: 'Rules', icon: '⚙' },
   { to: '/devices', label: 'Devices', icon: '📟' },
   { to: '/ops', label: 'Ops', icon: '🛠' },

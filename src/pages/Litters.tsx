@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { api } from '../lib/api';
 import { useQuery, useMutation } from '../lib/useApi';
@@ -251,6 +252,12 @@ function LitterPuppies({ litterId }: { litterId: string }) {
                   <span className="ml-auto flex items-center gap-1">
                     <Badge className="bg-slate-800 text-slate-400 ring-slate-700">{p.status}</Badge>
                     <Btn size="sm" variant="ghost" disabled={busy} onClick={() => addWeight(p.id)}>+ weight</Btn>
+                    <Link
+                      to={`/go-home/${p.id}`}
+                      className="rounded-lg px-2.5 py-1 text-xs text-slate-300 hover:bg-slate-800 hover:text-white"
+                    >
+                      Go-home pack
+                    </Link>
                   </span>
                 </Card>
               </li>

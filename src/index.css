@@ -27,3 +27,16 @@ body {
   background: #334155;
   border-radius: 4px;
 }
+
+@media print {
+  aside {
+    display: none !important;
+  }
+  main {
+    max-width: none !important;
+  }
+  body {
+    background: white;
+    color: #0f172a;
+  }
+}
