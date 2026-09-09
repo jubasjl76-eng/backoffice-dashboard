@@ -1,4 +1,5 @@
 import type { ButtonHTMLAttributes, ReactNode, InputHTMLAttributes, SelectHTMLAttributes } from 'react';
+import { useT } from '../i18n';
 
 export function Card({ children, className = '' }: { children: ReactNode; className?: string }) {
   return (
@@ -60,11 +61,12 @@ export function Select(p: SelectHTMLAttributes<HTMLSelectElement>) {
 }
 
 export function Spinner({ className = '' }: { className?: string }) {
+  const { t } = useT();
   return (
     <span
       className={`inline-block h-4 w-4 animate-spin rounded-full border-2 border-slate-600 border-t-slate-200 motion-reduce:animate-none ${className}`}
       role="status"
-      aria-label="Loading"
+      aria-label={t('common.loading')}
     />
   );
 }
@@ -105,10 +107,17 @@ export function Drawer({
       <div className="absolute right-0 top-0 flex h-full w-full max-w-md flex-col border-l border-slate-800 bg-slate-950 shadow-xl">
         <div className="flex items-center justify-between border-b border-slate-800 px-5 py-4">
           <h2 className="font-semibold text-white">{title}</h2>
-          <Btn variant="ghost" size="sm" onClick={onClose} aria-label="Close">✕</Btn>
+          <CloseBtn onClose={onClose} />
         </div>
         <div className="flex-1 overflow-auto p-5">{children}</div>
       </div>
     </div>
+  );
+}
+
+function CloseBtn({ onClose }: { onClose: () => void }) {
+  const { t } = useT();
+  return (
+    <Btn variant="ghost" size="sm" onClick={onClose} aria-label={t('common.close')}>✕</Btn>
   );
 }

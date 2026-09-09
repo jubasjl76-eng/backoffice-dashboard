@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { api } from '../lib/api';
-import { useQuery, useMutation } from '../lib/useApi';
 import { Badge, Btn, Card, Drawer, EmptyState, Field, Input, PageHeader, Spinner } from '../components/ui';
-import { titleCase } from '../lib/format';
+import { useT } from '../i18n';
+import { api } from '../lib/api';
+import { useMutation, useQuery } from '../lib/useApi';
 
 type Kind = 'animal' | 'litter' | 'puppy';
 type Run = ReturnType<typeof useMutation>[0];
@@ -72,6 +72,7 @@ function PairList({
   aLabel: string;
   bLabel: string;
 }) {
+  const { t } = useT();
   return (
     <div className="space-y-2">
       {items.map((it, i) => (
@@ -94,19 +95,20 @@ function PairList({
               onChange(next);
             }}
           />
-          <Btn size="sm" variant="ghost" onClick={() => onChange(items.filter((_, j) => j !== i))} aria-label="Remove">
+          <Btn size="sm" variant="ghost" onClick={() => onChange(items.filter((_, j) => j !== i))} aria-label={t('common.remove')}>
             ✕
           </Btn>
         </div>
       ))}
       <Btn size="sm" variant="ghost" onClick={() => onChange([...items, {}])}>
-        + add
+        {t('website.addRow')}
       </Btn>
     </div>
   );
 }
 
 function Identity({ kennel, run, busy, onSaved }: { kennel: KennelPublic; run: Run; busy: boolean; onSaved: () => void }) {
+  const { t } = useT();
   const saved = {
     tagline: kennel.public_tagline ?? '',
     about: kennel.public_about ?? '',
@@ -141,20 +143,20 @@ function Identity({ kennel, run, busy, onSaved }: { kennel: KennelPublic; run: R
   return (
     <div className="space-y-3">
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field label="Tagline">
+        <Field label={t('website.tagline')}>
           <Input value={v.tagline} onChange={(e) => setEdit({ ...edit, tagline: e.target.value })} />
         </Field>
-        <Field label="Location (town / region)">
+        <Field label={t('website.location')}>
           <Input value={v.location} onChange={(e) => setEdit({ ...edit, location: e.target.value })} />
         </Field>
-        <Field label="Public email">
+        <Field label={t('website.publicEmail')}>
           <Input type="email" value={v.email} onChange={(e) => setEdit({ ...edit, email: e.target.value })} />
         </Field>
-        <Field label="Public phone">
+        <Field label={t('website.publicPhone')}>
           <Input value={v.phone} onChange={(e) => setEdit({ ...edit, phone: e.target.value })} />
         </Field>
       </div>
-      <Field label="About (a short paragraph)">
+      <Field label={t('website.about')}>
         <textarea
           className={textCls}
           rows={3}
@@ -163,24 +165,25 @@ function Identity({ kennel, run, busy, onSaved }: { kennel: KennelPublic; run: R
         />
       </Field>
       <div>
-        <span className="mb-1 block text-sm font-medium text-slate-300">Social links</span>
+        <span className="mb-1 block text-sm font-medium text-slate-300">{t('website.socials')}</span>
         <PairList
           items={v.socials as Pair[]}
           onChange={(next) => setEdit({ ...edit, socials: next })}
           aKey="label"
           bKey="url"
-          aLabel="Instagram"
+          aLabel={t('website.socialLabel')}
           bLabel="https://…"
         />
       </div>
       <Btn variant="primary" disabled={busy} onClick={save}>
-        Save identity
+        {t('website.saveIdentity')}
       </Btn>
     </div>
   );
 }
 
 function RowEditor({ kind, row, run, busy, onSaved }: { kind: Kind; row: InvRow; run: Run; busy: boolean; onSaved: () => void }) {
+  const { t } = useT();
   const [photos, setPhotos] = useState((row.photos ?? []).join('\n'));
   const [titles, setTitles] = useState(row.titles ?? '');
   const [bio, setBio] = useState(row.bio ?? '');
@@ -205,7 +208,7 @@ function RowEditor({ kind, row, run, busy, onSaved }: { kind: Kind; row: InvRow;
 
   return (
     <div className="space-y-4 text-sm">
-      <Field label="Photo URLs (one per line)">
+      <Field label={t('website.photoUrls')}>
         <textarea
           className={textCls}
           rows={4}
@@ -217,39 +220,40 @@ function RowEditor({ kind, row, run, busy, onSaved }: { kind: Kind; row: InvRow;
 
       {kind === 'animal' && (
         <>
-          <Field label="Titles / registration">
+          <Field label={t('website.titles')}>
             <Input value={titles} onChange={(e) => setTitles(e.target.value)} />
           </Field>
-          <Field label="Bio">
+          <Field label={t('website.bio')}>
             <textarea className={textCls} rows={3} value={bio} onChange={(e) => setBio(e.target.value)} />
           </Field>
           <div>
-            <span className="mb-1 block text-sm font-medium text-slate-300">Health tests</span>
-            <PairList items={health} onChange={setHealth} aKey="name" bKey="result" aLabel="Hips (BVA/KC)" bLabel="3:3" />
+            <span className="mb-1 block text-sm font-medium text-slate-300">{t('website.healthTests')}</span>
+            <PairList items={health} onChange={setHealth} aKey="name" bKey="result" aLabel={t('website.testName')} bLabel="3:3" />
           </div>
         </>
       )}
 
       {kind === 'litter' && (
-        <Field label="Public description">
+        <Field label={t('website.publicDesc')}>
           <textarea className={textCls} rows={4} value={desc} onChange={(e) => setDesc(e.target.value)} />
         </Field>
       )}
 
       {kind === 'puppy' && (
-        <Field label="Colour">
+        <Field label={t('website.colour')}>
           <Input value={color} onChange={(e) => setColor(e.target.value)} />
         </Field>
       )}
 
       <Btn variant="primary" disabled={busy} onClick={save}>
-        Save
+        {t('common.save')}
       </Btn>
     </div>
   );
 }
 
 export function Website() {
+  const { t, label } = useT();
   const cfg = useQuery<{ kennel: KennelPublic; counts: { dogs: number; litters: number; puppies: number } }>(
     '/breeder/website',
   );
@@ -267,47 +271,47 @@ export function Website() {
     }
   }
 
-  const sections: { kind: Kind; label: string; rows: InvRow[] | undefined }[] = [
-    { kind: 'animal', label: 'Dogs', rows: inv.data?.animals },
-    { kind: 'litter', label: 'Litters', rows: inv.data?.litters },
-    { kind: 'puppy', label: 'Puppies', rows: inv.data?.puppies },
+  const sections: { kind: Kind; labelKey: 'website.dogs' | 'website.litters' | 'website.puppies'; rows: InvRow[] | undefined }[] = [
+    { kind: 'animal', labelKey: 'website.dogs', rows: inv.data?.animals },
+    { kind: 'litter', labelKey: 'website.litters', rows: inv.data?.litters },
+    { kind: 'puppy', labelKey: 'website.puppies', rows: inv.data?.puppies },
   ];
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Website">
+      <PageHeader title={t('website.title')}>
         {cfg.data && (
           <div className="flex items-center gap-2 text-xs text-slate-500">
-            <Badge className="bg-slate-800 text-slate-300 ring-slate-700">{cfg.data.counts.dogs} dogs</Badge>
-            <Badge className="bg-slate-800 text-slate-300 ring-slate-700">{cfg.data.counts.litters} litters</Badge>
-            <Badge className="bg-slate-800 text-slate-300 ring-slate-700">{cfg.data.counts.puppies} puppies</Badge>
-            <span>published</span>
+            <Badge className="bg-slate-800 text-slate-300 ring-slate-700">{cfg.data.counts.dogs} {t('website.dogs').toLowerCase()}</Badge>
+            <Badge className="bg-slate-800 text-slate-300 ring-slate-700">{cfg.data.counts.litters} {t('website.litters').toLowerCase()}</Badge>
+            <Badge className="bg-slate-800 text-slate-300 ring-slate-700">{cfg.data.counts.puppies} {t('website.puppies').toLowerCase()}</Badge>
+            <span>{t('website.published')}</span>
           </div>
         )}
       </PageHeader>
 
       <p className="text-sm text-slate-500">
-        Only what you publish here shows on the public site. Toggling publish also asks the site to refresh.
+        {t('website.intro')}
       </p>
 
       <Card className="p-5">
-        <h2 className="mb-3 font-medium text-slate-200">Public identity</h2>
+        <h2 className="mb-3 font-medium text-slate-200">{t('website.identity')}</h2>
         {cfg.loading && !cfg.data ? (
           <Spinner />
         ) : cfg.data?.kennel ? (
           <Identity kennel={cfg.data.kennel} run={run} busy={busy} onSaved={() => cfg.reload()} />
         ) : (
-          <EmptyState title="No kennel yet" hint="Finish setup first." />
+          <EmptyState title={t('website.noKennel')} hint={t('website.noKennelHint')} />
         )}
       </Card>
 
       {sections.map((s) => (
         <Card key={s.kind} className="p-5">
-          <h2 className="mb-3 font-medium text-slate-200">{s.label}</h2>
+          <h2 className="mb-3 font-medium text-slate-200">{t(s.labelKey)}</h2>
           {inv.loading && !inv.data ? (
             <Spinner />
           ) : !s.rows?.length ? (
-            <EmptyState title={`No ${s.label.toLowerCase()}`} />
+            <EmptyState title={t('website.noItems', { kind: t(s.labelKey).toLowerCase() })} />
           ) : (
             <ul className="divide-y divide-slate-800">
               {s.rows.map((row) => {
@@ -318,22 +322,22 @@ export function Website() {
                       on={row.published}
                       busy={busy}
                       onChange={() => toggle(s.kind, row)}
-                      label={row.published ? 'Unpublish' : 'Publish'}
+                      label={row.published ? t('website.unpublish') : t('website.publish')}
                     />
                     <button className="min-w-0 flex-1 text-left" onClick={() => setEditing({ kind: s.kind, row })}>
-                      <div className="truncate text-sm text-slate-100">{row.name || '(unnamed)'}</div>
+                      <div className="truncate text-sm text-slate-100">{row.name || t('common.unnamed')}</div>
                       <div className="text-xs text-slate-500">
-                        {s.kind === 'animal' && `${titleCase(row.role || '')} · ${row.breed || 'breed?'}`}
-                        {s.kind === 'litter' && titleCase(row.status || '')}
-                        {s.kind === 'puppy' && `${titleCase(row.sex || '')}${row.color ? ` · ${row.color}` : ''}`}
-                        {` · ${n} photo${n === 1 ? '' : 's'}`}
+                        {s.kind === 'animal' && `${label('role', row.role || '')} · ${row.breed || t('animals.unknownBreed')}`}
+                        {s.kind === 'litter' && label('litterStatus', row.status || '')}
+                        {s.kind === 'puppy' && `${label('sex', row.sex || '')}${row.color ? ` · ${row.color}` : ''}`}
+                        {` · ${n === 1 ? t('website.photos', { n }) : t('website.photosMany', { n })}`}
                       </div>
                     </button>
                     {row.published && (
-                      <Badge className="bg-emerald-500/10 text-emerald-300 ring-emerald-500/30">live</Badge>
+                      <Badge className="bg-emerald-500/10 text-emerald-300 ring-emerald-500/30">{t('common.live')}</Badge>
                     )}
                     <Btn size="sm" variant="ghost" onClick={() => setEditing({ kind: s.kind, row })}>
-                      Edit
+                      {t('common.edit')}
                     </Btn>
                   </li>
                 );
@@ -343,7 +347,7 @@ export function Website() {
         </Card>
       ))}
 
-      <Drawer open={!!editing} onClose={() => setEditing(null)} title={editing ? `Edit ${editing.kind}` : ''}>
+      <Drawer open={!!editing} onClose={() => setEditing(null)} title={editing ? t('website.editKind', { kind: label('websiteKind', editing.kind) }) : ''}>
         {editing && (
           <RowEditor
             kind={editing.kind}

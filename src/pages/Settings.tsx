@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { api } from '../lib/api';
-import { useQuery, useMutation } from '../lib/useApi';
-import { useAuth } from '../lib/auth';
 import { Badge, Btn, Card, Field, Input, PageHeader, Select, Spinner } from '../components/ui';
-import { shortDate, timeAgo, titleCase } from '../lib/format';
+import { useDates, useT } from '../i18n';
+import { api } from '../lib/api';
+import { useAuth } from '../lib/auth';
+import { useMutation, useQuery } from '../lib/useApi';
 
 interface SetupStatus {
   setupComplete: boolean;
@@ -30,6 +30,7 @@ interface Invite {
 }
 
 export function Settings() {
+  const { t, label } = useT();
   const { user } = useAuth();
   const isOwner = user?.role === 'owner';
   const status = useQuery<SetupStatus>('/setup/status');
@@ -58,33 +59,33 @@ export function Settings() {
     if (r) status.reload();
   }
   async function seedDemo() {
-    if (!confirm('Seed demo pens, dogs and preset rules?')) return;
+    if (!confirm(t('settings.seedConfirm'))) return;
     const r = await run(() => api('/setup/seed-demo', { method: 'POST' }));
     if (r) status.reload();
   }
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Settings" />
+      <PageHeader title={t('settings.title')} />
 
       <Card className="p-5">
-        <h2 className="mb-3 font-medium text-slate-200">Kennel</h2>
+        <h2 className="mb-3 font-medium text-slate-200">{t('settings.kennel')}</h2>
         {status.loading && !status.data ? (
           <Spinner />
         ) : (
           <div className="space-y-3">
             <div className="grid gap-3 sm:grid-cols-3">
-              <Field label="Name"><Input value={k.name} disabled={!status.data?.canAdminister} onChange={(e) => setEdit({ ...edit, name: e.target.value })} /></Field>
-              <Field label="Breed focus"><Input value={k.breedFocus} disabled={!status.data?.canAdminister} onChange={(e) => setEdit({ ...edit, breedFocus: e.target.value })} /></Field>
-              <Field label="Timezone"><Input value={k.timezone} disabled={!status.data?.canAdminister} onChange={(e) => setEdit({ ...edit, timezone: e.target.value })} /></Field>
+              <Field label={t('common.name')}><Input value={k.name} disabled={!status.data?.canAdminister} onChange={(e) => setEdit({ ...edit, name: e.target.value })} /></Field>
+              <Field label={t('settings.breedFocus')}><Input value={k.breedFocus} disabled={!status.data?.canAdminister} onChange={(e) => setEdit({ ...edit, breedFocus: e.target.value })} /></Field>
+              <Field label={t('settings.timezone')}><Input value={k.timezone} disabled={!status.data?.canAdminister} onChange={(e) => setEdit({ ...edit, timezone: e.target.value })} /></Field>
             </div>
             {status.data?.canAdminister && (
               <div className="flex flex-wrap gap-2">
-                <Btn variant="primary" disabled={busy || !k.name} onClick={saveKennel}>Save</Btn>
+                <Btn variant="primary" disabled={busy || !k.name} onClick={saveKennel}>{t('common.save')}</Btn>
                 {!status.data.setupComplete && (
-                  <Btn disabled={busy} onClick={complete}>Mark setup complete</Btn>
+                  <Btn disabled={busy} onClick={complete}>{t('settings.markComplete')}</Btn>
                 )}
-                <Btn variant="ghost" disabled={busy} onClick={seedDemo}>Seed demo data</Btn>
+                <Btn variant="ghost" disabled={busy} onClick={seedDemo}>{t('settings.seed')}</Btn>
               </div>
             )}
             {status.data && (
@@ -94,11 +95,16 @@ export function Settings() {
                     key={step}
                     className={done ? 'bg-emerald-500/10 text-emerald-300 ring-emerald-500/30' : 'bg-slate-800 text-slate-500 ring-slate-700'}
                   >
-                    {done ? '✓' : '○'} {titleCase(step)}
+                    {done ? '✓' : '○'} {label('setupStep', step)}
                   </Badge>
                 ))}
                 <span className="text-slate-600">
-                  {status.data.counts.pens} pens · {status.data.counts.animals} dogs · {status.data.counts.rules} rules · {status.data.counts.devices} devices
+                  {t('settings.counts', {
+                    pens: status.data.counts.pens,
+                    dogs: status.data.counts.animals,
+                    rules: status.data.counts.rules,
+                    devices: status.data.counts.devices,
+                  })}
                 </span>
               </div>
             )}
@@ -107,13 +113,15 @@ export function Settings() {
       </Card>
 
       {isOwner ? <Team busy={busy} run={run} /> : (
-        <Card className="p-5 text-sm text-slate-500">Only owners can manage team members.</Card>
+        <Card className="p-5 text-sm text-slate-500">{t('settings.ownersOnly')}</Card>
       )}
     </div>
   );
 }
 
 function Team({ busy, run }: { busy: boolean; run: ReturnType<typeof useMutation>[0] }) {
+  const { t, label } = useT();
+  const { shortDate, timeAgo } = useDates();
   const users = useQuery<{ users: User[] }>('/users');
   const invites = useQuery<{ invites: Invite[] }>('/users/invites');
   const { user: me } = useAuth();
@@ -143,7 +151,7 @@ function Team({ busy, run }: { busy: boolean; run: ReturnType<typeof useMutation
   return (
     <>
       <Card className="p-5">
-        <h2 className="mb-3 font-medium text-slate-200">Team</h2>
+        <h2 className="mb-3 font-medium text-slate-200">{t('settings.team')}</h2>
         {users.loading && !users.data ? (
           <Spinner />
         ) : (
@@ -154,20 +162,20 @@ function Team({ busy, run }: { busy: boolean; run: ReturnType<typeof useMutation
                   <span className="text-slate-100">{u.name || u.email}</span>
                   <span className="ml-2 text-xs text-slate-500">{u.email}</span>
                 </div>
-                {!u.active && <Badge className="bg-slate-700/40 text-slate-400 ring-slate-600/40">inactive</Badge>}
+                {!u.active && <Badge className="bg-slate-700/40 text-slate-400 ring-slate-600/40">{t('common.inactive')}</Badge>}
                 <Select
                   className="w-24 !py-1 text-xs"
                   value={u.role}
                   disabled={busy || u.id === me?.id}
                   onChange={(e) => patchUser(u.id, { role: e.target.value })}
-                  aria-label={`${u.email} role`}
+                  aria-label={t('settings.roleOf', { email: u.email })}
                 >
-                  <option value="staff">Staff</option>
-                  <option value="owner">Owner</option>
+                  <option value="staff">{label('role', 'staff')}</option>
+                  <option value="owner">{label('role', 'owner')}</option>
                 </Select>
                 {u.id !== me?.id && (
                   <Btn size="sm" variant="ghost" disabled={busy} onClick={() => patchUser(u.id, { active: !u.active })}>
-                    {u.active ? 'Deactivate' : 'Reactivate'}
+                    {u.active ? t('settings.deactivate') : t('settings.reactivate')}
                   </Btn>
                 )}
               </li>
@@ -177,20 +185,20 @@ function Team({ busy, run }: { busy: boolean; run: ReturnType<typeof useMutation
       </Card>
 
       <Card className="p-5">
-        <h2 className="mb-3 font-medium text-slate-200">Invite a team member</h2>
+        <h2 className="mb-3 font-medium text-slate-200">{t('settings.invite')}</h2>
         <div className="flex flex-wrap items-end gap-2">
-          <Field label="Email"><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></Field>
-          <Field label="Role">
+          <Field label={t('common.email')}><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></Field>
+          <Field label={t('common.role')}>
             <Select value={role} onChange={(e) => setRole(e.target.value)}>
-              <option value="staff">Staff</option>
-              <option value="owner">Owner</option>
+              <option value="staff">{label('role', 'staff')}</option>
+              <option value="owner">{label('role', 'owner')}</option>
             </Select>
           </Field>
-          <Btn variant="primary" disabled={busy || !email} onClick={invite}>Create invite</Btn>
+          <Btn variant="primary" disabled={busy || !email} onClick={invite}>{t('settings.createInvite')}</Btn>
         </div>
         {lastLink && (
           <p className="mt-3 break-all rounded-lg border border-slate-800 bg-slate-900/60 p-2 text-xs text-slate-400">
-            Email delivery lands in Phase 3 — send this link manually:<br />
+            {t('settings.inviteHint')}<br />
             <span className="text-indigo-300">{lastLink}</span>
           </p>
         )}
@@ -199,9 +207,9 @@ function Team({ busy, run }: { busy: boolean; run: ReturnType<typeof useMutation
             {openInvites.map((i) => (
               <li key={i.token} className="flex items-center gap-2 text-sm">
                 <span className="min-w-0 flex-1 truncate text-slate-300">{i.email}</span>
-                <Badge className="bg-slate-800 text-slate-400 ring-slate-700">{i.role}</Badge>
-                <span className="text-xs text-slate-600">exp {shortDate(i.expires_at)} · {timeAgo(i.created_at)}</span>
-                <Btn size="sm" variant="ghost" disabled={busy} onClick={() => revoke(i.token)}>Revoke</Btn>
+                <Badge className="bg-slate-800 text-slate-400 ring-slate-700">{label('role', i.role)}</Badge>
+                <span className="text-xs text-slate-600">{t('settings.exp', { date: shortDate(i.expires_at) })} · {timeAgo(i.created_at)}</span>
+                <Btn size="sm" variant="ghost" disabled={busy} onClick={() => revoke(i.token)}>{t('settings.revoke')}</Btn>
               </li>
             ))}
           </ul>

@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { api } from '../lib/api';
-import { useQuery, useMutation } from '../lib/useApi';
-import { Badge, Btn, Card, Drawer, EmptyState, Field, Input, PageHeader, Select, Spinner } from '../components/ui';
 import { DocumentsPanel } from '../components/Documents';
-import { shortDate, timeAgo, titleCase } from '../lib/format';
+import { Badge, Btn, Card, Drawer, EmptyState, Field, Input, PageHeader, Select, Spinner } from '../components/ui';
+import { useDates, useT } from '../i18n';
+import { api } from '../lib/api';
+import { useMutation, useQuery } from '../lib/useApi';
 
 interface Buyer {
   id: string;
@@ -57,6 +57,8 @@ const STATUS_TONE: Record<string, string> = {
 };
 
 export function Buyers() {
+  const { t, label } = useT();
+  const { shortDate, timeAgo } = useDates();
   const q = useQuery<{ buyers: Buyer[] }>('/breeder/litters/buyers/list');
   const litters = useQuery<{ litters: Litter[] }>('/breeder/litters');
   const messages = useQuery<{ messages: Message[] }>('/breeder/buyers/messages');
@@ -108,7 +110,7 @@ export function Buyers() {
       }),
     );
     if (r) {
-      alert(`Queued ${r.sent} message${r.sent === 1 ? '' : 's'}.`);
+      alert(r.sent === 1 ? t('buyers.queuedOne') : t('buyers.queuedMany', { n: r.sent }));
       setBroadcast(false);
       setBc({ subject: '', body: '', litterId: '', status: '' });
       messages.reload();
@@ -155,7 +157,7 @@ export function Buyers() {
   async function runSweep() {
     const r = await run(() => api<{ sent: number }>('/breeder/buyers/update-pack/run', { method: 'POST' }));
     if (r) {
-      alert(`Sent ${r.sent} update pack${r.sent === 1 ? '' : 's'}.`);
+      alert(r.sent === 1 ? t('buyers.sentOne') : t('buyers.sentMany', { n: r.sent }));
       subs.reload();
       messages.reload();
     }
@@ -165,18 +167,18 @@ export function Buyers() {
 
   return (
     <div className="space-y-5">
-      <PageHeader title="Buyers & waitlist">
-        <Btn onClick={() => setBroadcast(true)}>Broadcast</Btn>
-        <Btn variant="primary" onClick={() => setAdding(true)}>Add buyer</Btn>
+      <PageHeader title={t('buyers.title')}>
+        <Btn onClick={() => setBroadcast(true)}>{t('buyers.broadcast')}</Btn>
+        <Btn variant="primary" onClick={() => setAdding(true)}>{t('buyers.add')}</Btn>
       </PageHeader>
 
       {broadcast && (
         <Card className="p-4">
-          <h2 className="mb-3 font-medium text-slate-200">Broadcast</h2>
+          <h2 className="mb-3 font-medium text-slate-200">{t('buyers.broadcast')}</h2>
           <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Litter (optional)">
+            <Field label={t('buyers.litterOptional')}>
               <Select value={bc.litterId} onChange={(e) => setBc({ ...bc, litterId: e.target.value })}>
-                <option value="">All litters</option>
+                <option value="">{t('buyers.allLitters')}</option>
                 {(litters.data?.litters ?? []).map((l) => (
                   <option key={l.id} value={l.id}>
                     {l.name || `${l.dam_name ?? '?'} × ${l.sire_name ?? '?'}`}
@@ -184,26 +186,26 @@ export function Buyers() {
                 ))}
               </Select>
             </Field>
-            <Field label="Status (optional)">
+            <Field label={t('buyers.statusOptional')}>
               <Select value={bc.status} onChange={(e) => setBc({ ...bc, status: e.target.value })}>
-                <option value="">Any status</option>
+                <option value="">{t('buyers.anyStatus')}</option>
                 {STATUSES.map((s) => (
-                  <option key={s} value={s}>{titleCase(s)}</option>
+                  <option key={s} value={s}>{label('buyerStatus', s)}</option>
                 ))}
               </Select>
             </Field>
-            <Field label="Subject">
+            <Field label={t('common.subject')}>
               <Input value={bc.subject} onChange={(e) => setBc({ ...bc, subject: e.target.value })} />
             </Field>
-            <Field label="Body" hint="Use {name} for the buyer's first name">
+            <Field label={t('common.body')} hint={t('buyers.bodyHint')}>
               <Input value={bc.body} onChange={(e) => setBc({ ...bc, body: e.target.value })} />
             </Field>
           </div>
           <div className="mt-3 flex gap-2">
             <Btn variant="primary" disabled={busy || !bc.subject || !bc.body} onClick={sendBroadcast}>
-              Send
+              {t('common.send')}
             </Btn>
-            <Btn variant="ghost" onClick={() => setBroadcast(false)}>Cancel</Btn>
+            <Btn variant="ghost" onClick={() => setBroadcast(false)}>{t('common.cancel')}</Btn>
           </div>
         </Card>
       )}
@@ -211,35 +213,35 @@ export function Buyers() {
       {adding && (
         <Card className="p-4">
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            <Field label="Name"><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></Field>
-            <Field label="Email"><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></Field>
-            <Field label="Phone"><Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></Field>
-            <Field label="City"><Input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} /></Field>
-            <Field label="Notes"><Input value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></Field>
+            <Field label={t('common.name')}><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></Field>
+            <Field label={t('common.email')}><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></Field>
+            <Field label={t('common.phone')}><Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></Field>
+            <Field label={t('common.city')}><Input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} /></Field>
+            <Field label={t('common.notes')}><Input value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></Field>
           </div>
           <div className="mt-3 flex gap-2">
-            <Btn variant="primary" disabled={busy || !form.name} onClick={create}>Save</Btn>
-            <Btn variant="ghost" onClick={() => setAdding(false)}>Cancel</Btn>
+            <Btn variant="primary" disabled={busy || !form.name} onClick={create}>{t('common.save')}</Btn>
+            <Btn variant="ghost" onClick={() => setAdding(false)}>{t('common.cancel')}</Btn>
           </div>
         </Card>
       )}
 
       {msgFor && (
         <Card className="p-4">
-          <h2 className="mb-3 font-medium text-slate-200">Message {msgFor.name}</h2>
+          <h2 className="mb-3 font-medium text-slate-200">{t('buyers.message', { name: msgFor.name })}</h2>
           <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Subject">
+            <Field label={t('common.subject')}>
               <Input value={dm.subject} onChange={(e) => setDm({ ...dm, subject: e.target.value })} />
             </Field>
-            <Field label="Body">
+            <Field label={t('common.body')}>
               <Input value={dm.body} onChange={(e) => setDm({ ...dm, body: e.target.value })} />
             </Field>
           </div>
           <div className="mt-3 flex gap-2">
             <Btn variant="primary" disabled={busy || !dm.subject || !dm.body} onClick={sendDirect}>
-              Send
+              {t('common.send')}
             </Btn>
-            <Btn variant="ghost" onClick={() => setMsgFor(null)}>Cancel</Btn>
+            <Btn variant="ghost" onClick={() => setMsgFor(null)}>{t('common.cancel')}</Btn>
           </div>
         </Card>
       )}
@@ -247,7 +249,7 @@ export function Buyers() {
       {q.loading && !q.data ? (
         <Spinner />
       ) : buyers.length === 0 ? (
-        <EmptyState title="No buyers yet" hint="Add prospective puppy buyers to build your waitlist." />
+        <EmptyState title={t('buyers.empty')} hint={t('buyers.emptyHint')} />
       ) : (
         <ul className="space-y-2">
           {buyers.map((b) => {
@@ -259,18 +261,18 @@ export function Buyers() {
                     <div className="flex flex-wrap items-center gap-2">
                       {b.waitlist_rank != null && <span className="text-xs text-slate-600">#{b.waitlist_rank}</span>}
                       <span className="font-medium text-slate-100">{b.name}</span>
-                      <Badge className={STATUS_TONE[b.status] ?? STATUS_TONE.waitlist}>{titleCase(b.status)}</Badge>
-                      {b.deposit_paid && <Badge className="bg-emerald-500/10 text-emerald-300 ring-emerald-500/30">deposit</Badge>}
-                      {sub?.active && <Badge className="bg-indigo-500/15 text-indigo-300 ring-indigo-500/30">weekly pack</Badge>}
+                      <Badge className={STATUS_TONE[b.status] ?? STATUS_TONE.waitlist}>{label('buyerStatus', b.status)}</Badge>
+                      {b.deposit_paid && <Badge className="bg-emerald-500/10 text-emerald-300 ring-emerald-500/30">{t('buyers.deposit')}</Badge>}
+                      {sub?.active && <Badge className="bg-indigo-500/15 text-indigo-300 ring-indigo-500/30">{t('buyers.weeklyPack')}</Badge>}
                     </div>
                     <div className="mt-0.5 flex flex-wrap gap-x-3 text-xs text-slate-500">
                       {b.email && <span>{b.email}</span>}
                       {b.phone && <span>{b.phone}</span>}
                       {b.city && <span>{b.city}</span>}
-                      {b.litter_name && <span>wants {b.litter_name}</span>}
+                      {b.litter_name && <span>{t('buyers.wants', { name: b.litter_name })}</span>}
                       {b.puppy_name && <span>→ {b.puppy_name}</span>}
-                      {sub?.active && sub.next_run_at && <span>next pack {shortDate(sub.next_run_at)}</span>}
-                      {sub?.last_sent_at && <span>last pack {shortDate(sub.last_sent_at)}</span>}
+                      {sub?.active && sub.next_run_at && <span>{t('buyers.nextPack', { date: shortDate(sub.next_run_at) })}</span>}
+                      {sub?.last_sent_at && <span>{t('buyers.lastPack', { date: shortDate(sub.last_sent_at) })}</span>}
                     </div>
                   </div>
                   <div className="flex shrink-0 flex-wrap items-center gap-2">
@@ -279,20 +281,20 @@ export function Buyers() {
                       value={b.status}
                       disabled={busy}
                       onChange={(e) => patch(b.id, { status: e.target.value })}
-                      aria-label={`${b.name} status`}
+                      aria-label={t('buyers.statusOf', { name: b.name })}
                     >
-                      {STATUSES.map((s) => <option key={s} value={s}>{titleCase(s)}</option>)}
+                      {STATUSES.map((s) => <option key={s} value={s}>{label('buyerStatus', s)}</option>)}
                     </Select>
                     <Btn size="sm" variant="ghost" disabled={busy} onClick={() => patch(b.id, { depositPaid: !b.deposit_paid })}>
-                      {b.deposit_paid ? 'Clear deposit' : 'Mark deposit'}
+                      {b.deposit_paid ? t('buyers.clearDeposit') : t('buyers.markDeposit')}
                     </Btn>
                     <Btn size="sm" variant="ghost" onClick={() => { setMsgFor(b); setDm({ subject: '', body: '' }); }}>
-                      Message
+                      {t('buyers.messageBtn')}
                     </Btn>
-                    <Btn size="sm" variant="ghost" onClick={() => setPapersFor(b)}>Papers</Btn>
+                    <Btn size="sm" variant="ghost" onClick={() => setPapersFor(b)}>{t('common.papers')}</Btn>
                     {b.puppy_id && (
                       <Btn size="sm" variant="ghost" disabled={busy} onClick={() => togglePack(b)}>
-                        {sub?.active ? 'Stop weekly pack' : 'Weekly pack'}
+                        {sub?.active ? t('buyers.stopPack') : t('buyers.startPack')}
                       </Btn>
                     )}
                   </div>
@@ -305,11 +307,11 @@ export function Buyers() {
 
       <Card className="p-4">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <h2 className="font-medium text-slate-200">Update-pack subscriptions</h2>
-          <Btn size="sm" disabled={busy} onClick={runSweep}>Send due packs now</Btn>
+          <h2 className="font-medium text-slate-200">{t('buyers.subs')}</h2>
+          <Btn size="sm" disabled={busy} onClick={runSweep}>{t('buyers.sendDue')}</Btn>
         </div>
         {(subs.data?.subscriptions ?? []).length === 0 ? (
-          <p className="text-sm text-slate-500">No weekly packs. Match a buyer to a puppy, then start the pack.</p>
+          <p className="text-sm text-slate-500">{t('buyers.noSubs')}</p>
         ) : (
           <ul className="space-y-1.5 text-sm">
             {(subs.data?.subscriptions ?? []).map((s) => (
@@ -317,11 +319,11 @@ export function Buyers() {
                 <span className="text-slate-100">{s.buyer_name}</span>
                 <span className="text-slate-500">→ {s.puppy_name}</span>
                 <Badge className={s.active ? 'bg-indigo-500/15 text-indigo-300 ring-indigo-500/30' : 'bg-slate-800 text-slate-500 ring-slate-700'}>
-                  {s.active ? 'active' : 'paused'}
+                  {s.active ? t('common.active') : t('common.paused')}
                 </Badge>
                 <span className="text-xs text-slate-500">
-                  {s.last_sent_at ? `last ${shortDate(s.last_sent_at)}` : 'never sent'}
-                  {s.next_run_at ? ` · next ${shortDate(s.next_run_at)}` : ''}
+                  {s.last_sent_at ? t('buyers.last', { date: shortDate(s.last_sent_at) }) : t('buyers.neverSent')}
+                  {s.next_run_at ? ` · ${t('buyers.next', { date: shortDate(s.next_run_at) })}` : ''}
                 </span>
               </li>
             ))}
@@ -330,9 +332,9 @@ export function Buyers() {
       </Card>
 
       <Card className="p-4">
-        <h2 className="mb-3 font-medium text-slate-200">Message log</h2>
+        <h2 className="mb-3 font-medium text-slate-200">{t('buyers.msgLog')}</h2>
         {(messages.data?.messages ?? []).length === 0 ? (
-          <p className="text-sm text-slate-500">Nothing sent yet.</p>
+          <p className="text-sm text-slate-500">{t('buyers.nothingSent')}</p>
         ) : (
           <ul className="space-y-2 text-sm">
             {(messages.data?.messages ?? []).map((m) => (
@@ -351,7 +353,7 @@ export function Buyers() {
           </ul>
         )}
       </Card>
-      <Drawer open={!!papersFor} onClose={() => setPapersFor(null)} title={papersFor ? `${papersFor.name} · papers` : 'Papers'}>
+      <Drawer open={!!papersFor} onClose={() => setPapersFor(null)} title={papersFor ? t('buyers.papersTitle', { name: papersFor.name }) : t('common.papers')}>
         {papersFor && <DocumentsPanel subjectType="buyer" subjectId={papersFor.id} defaultKind="contract" generate />}
       </Drawer>
     </div>

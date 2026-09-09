@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react';
-import { api } from '../lib/api';
-import { useQuery, useMutation } from '../lib/useApi';
 import { Badge, Btn, Card, Drawer, EmptyState, Field, Input, PageHeader, Select, Spinner } from '../components/ui';
-import { shortDate, titleCase } from '../lib/format';
+import { useDates, useT } from '../i18n';
+import { api } from '../lib/api';
+import { titleCase } from '../lib/format';
+import { useMutation, useQuery } from '../lib/useApi';
 
 interface Heat {
   damId: string;
@@ -57,17 +58,26 @@ interface CalEvent {
   detail?: string;
 }
 
-const KIND: Record<Kind, { label: string; cls: string; bar: string }> = {
-  heat: { label: 'Season', cls: 'bg-rose-500/15 text-rose-300 ring-rose-500/30', bar: 'bg-rose-400' },
-  predicted: { label: 'Next season', cls: 'bg-violet-500/15 text-violet-300 ring-violet-500/30', bar: 'bg-violet-400' },
-  fertile: { label: 'Fertile', cls: 'bg-amber-500/15 text-amber-300 ring-amber-500/30', bar: 'bg-amber-400' },
-  mated: { label: 'Mated', cls: 'bg-sky-500/15 text-sky-300 ring-sky-500/30', bar: 'bg-sky-400' },
-  due: { label: 'Due', cls: 'bg-emerald-500/15 text-emerald-300 ring-emerald-500/30', bar: 'bg-emerald-400' },
-  'go-home': { label: 'Go-home', cls: 'bg-indigo-500/15 text-indigo-300 ring-indigo-500/30', bar: 'bg-indigo-400' },
+const KIND: Record<Kind, { cls: string; bar: string }> = {
+  heat: { cls: 'bg-rose-500/15 text-rose-300 ring-rose-500/30', bar: 'bg-rose-400' },
+  predicted: { cls: 'bg-violet-500/15 text-violet-300 ring-violet-500/30', bar: 'bg-violet-400' },
+  fertile: { cls: 'bg-amber-500/15 text-amber-300 ring-amber-500/30', bar: 'bg-amber-400' },
+  mated: { cls: 'bg-sky-500/15 text-sky-300 ring-sky-500/30', bar: 'bg-sky-400' },
+  due: { cls: 'bg-emerald-500/15 text-emerald-300 ring-emerald-500/30', bar: 'bg-emerald-400' },
+  'go-home': { cls: 'bg-indigo-500/15 text-indigo-300 ring-indigo-500/30', bar: 'bg-indigo-400' },
+};
+
+const KIND_KEY: Record<Kind, string> = {
+  heat: 'cal.kind.heat',
+  predicted: 'cal.kind.predicted',
+  fertile: 'cal.kind.fertile',
+  mated: 'cal.kind.mated',
+  due: 'cal.kind.due',
+  'go-home': 'cal.kind.goHome',
 };
 
 const METHODS = ['natural', 'ai', 'surgical-ai'];
-const DOW = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const DOW = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const;
 
 function ymd(d: Date): string {
   const y = d.getFullYear();
@@ -108,13 +118,17 @@ function litterLabel(l: CalLitter): string {
   return l.name || `${l.dam_name ?? '?'} × ${l.sire_name ?? '?'}`;
 }
 
-function buildEvents(feed: CalendarFeed): CalEvent[] {
+function buildEvents(
+  feed: CalendarFeed,
+  t: (key: string, vars?: Record<string, string | number>) => string,
+  label: (group: string, value: string | null | undefined) => string,
+): CalEvent[] {
   const ev: CalEvent[] = [];
   for (const h of feed.heats) {
     const last = dayKey(h.lastHeat);
-    if (last) ev.push({ id: `heat-${h.damId}-${last}`, date: last, kind: 'heat', title: h.name, detail: 'season start' });
+    if (last) ev.push({ id: `heat-${h.damId}-${last}`, date: last, kind: 'heat', title: h.name, detail: t('cal.detail.seasonStart') });
     const next = dayKey(h.predictedNextHeat);
-    if (next) ev.push({ id: `pred-${h.damId}-${next}`, date: next, kind: 'predicted', title: h.name, detail: h.intervalDays ? `~${h.intervalDays}d cycle` : 'predicted' });
+    if (next) ev.push({ id: `pred-${h.damId}-${next}`, date: next, kind: 'predicted', title: h.name, detail: h.intervalDays ? t('cal.detail.cycle', { n: h.intervalDays }) : t('cal.detail.predicted') });
     if (h.fertileWindow) {
       const from = dayKey(h.fertileWindow.from);
       const to = dayKey(h.fertileWindow.to);
@@ -123,18 +137,20 @@ function buildEvents(feed: CalendarFeed): CalEvent[] {
   }
   for (const l of feed.litters) {
     const mated = dayKey(l.mated_on);
-    if (mated) ev.push({ id: `mated-${l.id}`, date: mated, kind: 'mated', title: litterLabel(l), detail: titleCase(l.status) });
+    if (mated) ev.push({ id: `mated-${l.id}`, date: mated, kind: 'mated', title: litterLabel(l), detail: label('litterStatus', l.status) });
     const due = dayKey(l.due_on);
-    if (due && !l.whelped_at) ev.push({ id: `due-${l.id}`, date: due, kind: 'due', title: litterLabel(l), detail: 'whelping due' });
+    if (due && !l.whelped_at) ev.push({ id: `due-${l.id}`, date: due, kind: 'due', title: litterLabel(l), detail: t('cal.detail.whelpingDue') });
   }
   for (const g of feed.goHome) {
     const on = dayKey(g.go_home_on);
-    if (on) ev.push({ id: `home-${g.id}`, date: on, kind: 'go-home', title: g.name, detail: g.litter_name ?? 'go-home' });
+    if (on) ev.push({ id: `home-${g.id}`, date: on, kind: 'go-home', title: g.name, detail: g.litter_name ?? t('cal.detail.goHome') });
   }
   return ev;
 }
 
 export function Calendar() {
+  const { t, label, locale } = useT();
+  const { shortDate } = useDates();
   const q = useQuery<CalendarFeed>('/breeder/breeding/calendar');
   const [cursor, setCursor] = useState(() => {
     const n = new Date();
@@ -145,7 +161,7 @@ export function Calendar() {
   const [mateFor, setMateFor] = useState<CalLitter | null>(null);
   const [progFor, setProgFor] = useState<CalLitter | null>(null);
 
-  const events = useMemo(() => (q.data ? buildEvents(q.data) : []), [q.data]);
+  const events = useMemo(() => (q.data ? buildEvents(q.data, t, label) : []), [q.data, t, label]);
   const byDay = useMemo(() => {
     const map = new Map<string, CalEvent[]>();
     for (const e of events) {
@@ -160,7 +176,7 @@ export function Calendar() {
   }, [events]);
 
   const cells = monthCells(cursor.y, cursor.m);
-  const monthLabel = new Date(cursor.y, cursor.m, 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+  const monthLabel = new Date(cursor.y, cursor.m, 1).toLocaleDateString(locale === 'pt' ? 'pt-PT' : 'en-GB', { month: 'long', year: 'numeric' });
   const heats = q.data?.heats ?? [];
   const litters = q.data?.litters ?? [];
   const planned = litters.filter((l) => l.status === 'planned' && !l.mated_on);
@@ -173,33 +189,33 @@ export function Calendar() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Calendar">
+      <PageHeader title={t('cal.title')}>
         <div className="flex items-center gap-2">
-          <Btn size="sm" variant="ghost" onClick={() => shift(-1)} aria-label="Previous month">←</Btn>
+          <Btn size="sm" variant="ghost" onClick={() => shift(-1)} aria-label={t('cal.prevMonth')}>←</Btn>
           <span className="min-w-[10rem] text-center text-sm text-slate-200">{monthLabel}</span>
-          <Btn size="sm" variant="ghost" onClick={() => shift(1)} aria-label="Next month">→</Btn>
+          <Btn size="sm" variant="ghost" onClick={() => shift(1)} aria-label={t('cal.nextMonth')}>→</Btn>
           <Btn size="sm" onClick={() => {
             const n = new Date();
             setCursor({ y: n.getFullYear(), m: n.getMonth() });
-          }}>Today</Btn>
+          }}>{t('common.today')}</Btn>
         </div>
       </PageHeader>
 
       {q.loading && !q.data ? (
         <Spinner />
       ) : q.error ? (
-        <EmptyState title="Couldn't load the calendar" hint={q.error} />
+        <EmptyState title={t('cal.loadError')} hint={q.error} />
       ) : (
         <>
           <div className="flex flex-wrap gap-2 text-xs">
             {(Object.keys(KIND) as Kind[]).map((k) => (
-              <Badge key={k} className={KIND[k].cls}>{KIND[k].label}</Badge>
+              <Badge key={k} className={KIND[k].cls}>{t(KIND_KEY[k])}</Badge>
             ))}
           </div>
 
           <Card className="overflow-hidden p-3">
             <div className="grid grid-cols-7 gap-px text-center text-xs text-slate-400">
-              {DOW.map((d) => <div key={d} className="py-1">{d}</div>)}
+              {DOW.map((d) => <div key={d} className="py-1">{t(`cal.dow.${d}`)}</div>)}
             </div>
             <div className="grid grid-cols-7 gap-px">
               {cells.map((d) => {
@@ -222,7 +238,7 @@ export function Calendar() {
                           <span className="text-[10px] text-slate-300">{e.title}</span>
                         </li>
                       ))}
-                      {items.length > 3 && <li className="text-[10px] text-slate-500">+{items.length - 3} more</li>}
+                      {items.length > 3 && <li className="text-[10px] text-slate-500">{t('cal.more', { n: items.length - 3 })}</li>}
                     </ul>
                   </div>
                 );
@@ -232,12 +248,12 @@ export function Calendar() {
 
           {planned.length > 0 && (
             <Card className="p-4">
-              <h2 className="mb-3 font-medium text-slate-200">Waiting on a mating date</h2>
+              <h2 className="mb-3 font-medium text-slate-200">{t('cal.waitingMating')}</h2>
               <ul className="space-y-2">
                 {planned.map((l) => (
                   <li key={l.id} className="flex flex-wrap items-center gap-2 text-sm">
                     <span className="min-w-0 flex-1 text-slate-100">{litterLabel(l)}</span>
-                    <Btn size="sm" variant="primary" onClick={() => setMateFor(l)}>Record mating</Btn>
+                    <Btn size="sm" variant="primary" onClick={() => setMateFor(l)}>{t('litters.recordMating')}</Btn>
                   </li>
                 ))}
               </ul>
@@ -246,16 +262,16 @@ export function Calendar() {
 
           {expecting.length > 0 && (
             <Card className="p-4">
-              <h2 className="mb-3 font-medium text-slate-200">Expecting</h2>
+              <h2 className="mb-3 font-medium text-slate-200">{t('cal.expecting')}</h2>
               <ul className="space-y-2">
                 {expecting.map((l) => (
                   <li key={l.id} className="flex flex-wrap items-center gap-2 text-sm">
                     <span className="min-w-0 flex-1 text-slate-100">{litterLabel(l)}</span>
                     <span className="text-xs text-slate-400">
-                      {l.mated_on ? `mated ${shortDate(l.mated_on)}` : ''}
-                      {l.due_on ? ` · due ${shortDate(l.due_on)}` : ''}
+                      {l.mated_on ? t('litters.mated', { date: shortDate(l.mated_on) }) : ''}
+                      {l.due_on ? `${l.mated_on ? ' · ' : ''}${t('litters.due', { date: shortDate(l.due_on) })}` : ''}
                     </span>
-                    <Btn size="sm" variant="ghost" onClick={() => setProgFor(l)}>Progesterone</Btn>
+                    <Btn size="sm" variant="ghost" onClick={() => setProgFor(l)}>{t('litters.progesterone')}</Btn>
                   </li>
                 ))}
               </ul>
@@ -263,9 +279,9 @@ export function Calendar() {
           )}
 
           <section className="space-y-3">
-            <h2 className="font-medium text-slate-200">Dams</h2>
+            <h2 className="font-medium text-slate-200">{t('cal.dams')}</h2>
             {heats.length === 0 ? (
-              <EmptyState title="No breeding dams" hint="Add a female with role Breeding on Animals, then log her seasons here." />
+              <EmptyState title={t('cal.noDams')} hint={t('cal.noDamsHint')} />
             ) : (
               <div className="grid gap-3 sm:grid-cols-2">
                 {heats.map((h) => (
@@ -274,14 +290,14 @@ export function Calendar() {
                       <div>
                         <div className="font-medium text-slate-100">{h.name}</div>
                         <div className="mt-1 space-y-0.5 text-xs text-slate-400">
-                          <div>Last season {h.lastHeat ? shortDate(h.lastHeat) : '— not logged'}</div>
-                          <div>Next {h.predictedNextHeat ? shortDate(h.predictedNextHeat) : '—'}{h.intervalDays ? ` · ~${h.intervalDays}d` : ''}</div>
+                          <div>{t('cal.lastSeason', { date: h.lastHeat ? shortDate(h.lastHeat) : t('cal.lastNone') })}</div>
+                          <div>{t('cal.next', { date: h.predictedNextHeat ? shortDate(h.predictedNextHeat) : '—' })}{h.intervalDays ? t('cal.cycle', { n: h.intervalDays }) : ''}</div>
                           {h.fertileWindow && (
-                            <div>Fertile {shortDate(h.fertileWindow.from)} – {shortDate(h.fertileWindow.to)}</div>
+                            <div>{t('cal.fertile', { from: shortDate(h.fertileWindow.from), to: shortDate(h.fertileWindow.to) })}</div>
                           )}
                         </div>
                       </div>
-                      <Btn size="sm" onClick={() => setHeatDam(h)}>Heat log</Btn>
+                      <Btn size="sm" onClick={() => setHeatDam(h)}>{t('cal.heatLog')}</Btn>
                     </div>
                   </Card>
                 ))}
@@ -291,10 +307,10 @@ export function Calendar() {
         </>
       )}
 
-      <Drawer open={!!heatDam} onClose={() => setHeatDam(null)} title={heatDam ? `${heatDam.name} · heat log` : 'Heat log'}>
+      <Drawer open={!!heatDam} onClose={() => setHeatDam(null)} title={heatDam ? t('cal.heatLogTitle', { name: heatDam.name }) : t('cal.heatLog')}>
         {heatDam && <HeatLog dam={heatDam} onChanged={() => q.reload()} />}
       </Drawer>
-      <Drawer open={!!mateFor} onClose={() => setMateFor(null)} title={mateFor ? `Record mating · ${litterLabel(mateFor)}` : 'Record mating'}>
+      <Drawer open={!!mateFor} onClose={() => setMateFor(null)} title={mateFor ? t('cal.recordMatingTitle', { name: litterLabel(mateFor) }) : t('litters.recordMating')}>
         {mateFor && (
           <RecordMating
             litterId={mateFor.id}
@@ -305,7 +321,7 @@ export function Calendar() {
           />
         )}
       </Drawer>
-      <Drawer open={!!progFor} onClose={() => setProgFor(null)} title={progFor ? `Progesterone · ${litterLabel(progFor)}` : 'Progesterone'}>
+      <Drawer open={!!progFor} onClose={() => setProgFor(null)} title={progFor ? t('cal.progTitle', { name: litterLabel(progFor) }) : t('litters.progesterone')}>
         {progFor && <ProgesteroneForm litterId={progFor.id} onDone={() => q.reload()} />}
       </Drawer>
     </div>
@@ -313,6 +329,8 @@ export function Calendar() {
 }
 
 function HeatLog({ dam, onChanged }: { dam: Heat; onChanged: () => void }) {
+  const { t } = useT();
+  const { shortDate } = useDates();
   const q = useQuery<{ heatCycles: HeatCycle[] }>(`/breeder/breeding/heat-cycles?animalId=${dam.damId}`);
   const [run, busy] = useMutation();
   const [form, setForm] = useState({ startedOn: '', endedOn: '', notes: '' });
@@ -337,7 +355,7 @@ function HeatLog({ dam, onChanged }: { dam: Heat; onChanged: () => void }) {
   }
 
   async function endCycle(c: HeatCycle) {
-    const endedOn = prompt('Ended on (YYYY-MM-DD)?', ymd(new Date()));
+    const endedOn = prompt(t('cal.endedPrompt'), ymd(new Date()));
     if (!endedOn) return;
     const r = await run(() => api(`/breeder/breeding/heat-cycles/${c.id}`, { method: 'PATCH', body: { endedOn } }));
     if (r) {
@@ -347,7 +365,7 @@ function HeatLog({ dam, onChanged }: { dam: Heat; onChanged: () => void }) {
   }
 
   async function remove(c: HeatCycle) {
-    if (!confirm('Delete this season log?')) return;
+    if (!confirm(t('cal.deleteSeason'))) return;
     const r = await run(() => api(`/breeder/breeding/heat-cycles/${c.id}`, { method: 'DELETE' }));
     if (r) {
       q.reload();
@@ -360,29 +378,29 @@ function HeatLog({ dam, onChanged }: { dam: Heat; onChanged: () => void }) {
   return (
     <div className="space-y-4 text-sm">
       <p className="text-xs text-slate-400">
-        Predicted next season uses the average gap between starts (180 days until two seasons are logged). Fertile window is days 9–15 of the predicted start — progesterone refines it.
+        {t('cal.heatHint')}
       </p>
       <div className="space-y-3">
-        <Field label="Started on"><Input type="date" value={form.startedOn} onChange={(e) => setForm({ ...form, startedOn: e.target.value })} /></Field>
-        <Field label="Ended on (optional)"><Input type="date" value={form.endedOn} onChange={(e) => setForm({ ...form, endedOn: e.target.value })} /></Field>
-        <Field label="Notes"><Input value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></Field>
-        <Btn variant="primary" disabled={busy || !form.startedOn} onClick={add}>Log season</Btn>
+        <Field label={t('cal.startedOn')}><Input type="date" value={form.startedOn} onChange={(e) => setForm({ ...form, startedOn: e.target.value })} /></Field>
+        <Field label={t('cal.endedOn')}><Input type="date" value={form.endedOn} onChange={(e) => setForm({ ...form, endedOn: e.target.value })} /></Field>
+        <Field label={t('common.notes')}><Input value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></Field>
+        <Btn variant="primary" disabled={busy || !form.startedOn} onClick={add}>{t('cal.logSeason')}</Btn>
       </div>
       {q.loading && !q.data ? (
         <Spinner />
       ) : cycles.length === 0 ? (
-        <p className="text-slate-400">No seasons logged yet.</p>
+        <p className="text-slate-400">{t('cal.noSeasons')}</p>
       ) : (
         <ul className="space-y-2">
           {cycles.map((c) => (
             <li key={c.id} className="rounded-lg border border-slate-800 p-3">
               <div className="font-medium text-slate-100">
-                {shortDate(c.started_on)}{c.ended_on ? ` – ${shortDate(c.ended_on)}` : ' – open'}
+                {shortDate(c.started_on)}{c.ended_on ? ` – ${shortDate(c.ended_on)}` : ` – ${t('cal.open')}`}
               </div>
               {c.notes && <p className="mt-1 text-xs text-slate-400">{c.notes}</p>}
               <div className="mt-2 flex gap-2">
-                {!c.ended_on && <Btn size="sm" variant="ghost" disabled={busy} onClick={() => endCycle(c)}>Mark ended</Btn>}
-                <Btn size="sm" variant="ghost" disabled={busy} onClick={() => remove(c)}>Delete</Btn>
+                {!c.ended_on && <Btn size="sm" variant="ghost" disabled={busy} onClick={() => endCycle(c)}>{t('cal.markEnded')}</Btn>}
+                <Btn size="sm" variant="ghost" disabled={busy} onClick={() => remove(c)}>{t('common.delete')}</Btn>
               </div>
             </li>
           ))}
@@ -393,6 +411,7 @@ function HeatLog({ dam, onChanged }: { dam: Heat; onChanged: () => void }) {
 }
 
 export function RecordMating({ litterId, onDone }: { litterId: string; onDone: () => void }) {
+  const { t, label } = useT();
   const [run, busy] = useMutation();
   const [form, setForm] = useState(() => ({ matedOn: ymd(new Date()), method: 'natural', progOn: '', ngml: '' }));
 
@@ -409,23 +428,25 @@ export function RecordMating({ litterId, onDone }: { litterId: string; onDone: (
 
   return (
     <div className="space-y-3 text-sm">
-      <p className="text-xs text-slate-400">Due date is set to mating + 63 days. A planned litter moves to expecting.</p>
-      <Field label="Mated on"><Input type="date" value={form.matedOn} onChange={(e) => setForm({ ...form, matedOn: e.target.value })} /></Field>
-      <Field label="Method">
+      <p className="text-xs text-slate-400">{t('cal.mateHint')}</p>
+      <Field label={t('cal.matedOn')}><Input type="date" value={form.matedOn} onChange={(e) => setForm({ ...form, matedOn: e.target.value })} /></Field>
+      <Field label={t('cal.method')}>
         <Select value={form.method} onChange={(e) => setForm({ ...form, method: e.target.value })}>
-          {METHODS.map((m) => <option key={m} value={m}>{titleCase(m)}</option>)}
+          {METHODS.map((m) => <option key={m} value={m}>{label('matingMethod', m)}</option>)}
         </Select>
       </Field>
       <div className="grid grid-cols-2 gap-3">
-        <Field label="Progesterone date"><Input type="date" value={form.progOn} onChange={(e) => setForm({ ...form, progOn: e.target.value })} /></Field>
-        <Field label="ng/mL"><Input type="number" step="0.1" value={form.ngml} onChange={(e) => setForm({ ...form, ngml: e.target.value })} /></Field>
+        <Field label={t('cal.progDate')}><Input type="date" value={form.progOn} onChange={(e) => setForm({ ...form, progOn: e.target.value })} /></Field>
+        <Field label={t('cal.ngml')}><Input type="number" step="0.1" value={form.ngml} onChange={(e) => setForm({ ...form, ngml: e.target.value })} /></Field>
       </div>
-      <Btn variant="primary" disabled={busy || !form.matedOn} onClick={save}>Save mating</Btn>
+      <Btn variant="primary" disabled={busy || !form.matedOn} onClick={save}>{t('cal.saveMating')}</Btn>
     </div>
   );
 }
 
 export function ProgesteroneForm({ litterId, onDone }: { litterId: string; onDone?: () => void }) {
+  const { t } = useT();
+  const { shortDate } = useDates();
   const [run, busy] = useMutation();
   const [on, setOn] = useState(() => ymd(new Date()));
   const [ngml, setNgml] = useState('');
@@ -449,23 +470,23 @@ export function ProgesteroneForm({ litterId, onDone }: { litterId: string; onDon
 
   return (
     <div className="space-y-3 text-sm">
-      <p className="text-xs text-slate-400">Rough guide only — the vet’s call wins. Pre-surge &lt;2 · surge &lt;5 · ovulation &lt;20 · then post-ovulation.</p>
+      <p className="text-xs text-slate-400">{t('cal.progHint')}</p>
       <div className="grid grid-cols-2 gap-3">
-        <Field label="Drawn on"><Input type="date" value={on} onChange={(e) => setOn(e.target.value)} /></Field>
-        <Field label="ng/mL"><Input type="number" step="0.1" value={ngml} onChange={(e) => setNgml(e.target.value)} /></Field>
+        <Field label={t('cal.drawnOn')}><Input type="date" value={on} onChange={(e) => setOn(e.target.value)} /></Field>
+        <Field label={t('cal.ngml')}><Input type="number" step="0.1" value={ngml} onChange={(e) => setNgml(e.target.value)} /></Field>
       </div>
-      <Btn variant="primary" disabled={busy || !on || !ngml} onClick={add}>Add reading</Btn>
+      <Btn variant="primary" disabled={busy || !on || !ngml} onClick={add}>{t('cal.addReading')}</Btn>
       {guidance && (
         <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-3">
           <Badge className="bg-amber-500/15 text-amber-300 ring-amber-500/30">{titleCase(guidance.phase)}</Badge>
           <p className="mt-2 text-slate-200">{guidance.note}</p>
-          {guidance.breedOn && <p className="mt-1 text-xs text-slate-400">Breed around {shortDate(guidance.breedOn)}</p>}
+          {guidance.breedOn && <p className="mt-1 text-xs text-slate-400">{t('cal.breedAround', { date: shortDate(guidance.breedOn) })}</p>}
         </div>
       )}
       {readings.length > 0 && (
         <ul className="space-y-1 text-xs text-slate-400">
           {readings.map((r, i) => (
-            <li key={`${r.on}-${i}`}>{shortDate(r.on)} · {r.ngml} ng/mL</li>
+            <li key={`${r.on}-${i}`}>{shortDate(r.on)} · {r.ngml} {t('cal.ngml')}</li>
           ))}
         </ul>
       )}

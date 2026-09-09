@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { api } from '../lib/api';
-import { useQuery, useMutation } from '../lib/useApi';
 import { Badge, Btn, Card, Field, Input, PageHeader, Spinner } from '../components/ui';
+import { useT } from '../i18n';
+import { api } from '../lib/api';
+import { useMutation, useQuery } from '../lib/useApi';
 
 interface Template {
   slug: string;
@@ -16,13 +17,14 @@ const areaCls =
   'w-full min-h-[22rem] rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2 font-mono text-sm text-slate-100 placeholder:text-slate-500 focus:border-indigo-400 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-400';
 
 export function Templates() {
+  const { t } = useT();
   const q = useQuery<{ templates: Template[] }>('/breeder/documents/templates');
   const [run, busy] = useMutation();
   const [slug, setSlug] = useState('contract');
   const [edit, setEdit] = useState<Partial<{ title: string; body: string }>>({});
 
   const templates = q.data?.templates ?? [];
-  const tpl = templates.find((t) => t.slug === slug) ?? templates[0];
+  const tpl = templates.find((row) => row.slug === slug) ?? templates[0];
   const form = { title: tpl?.title ?? '', body: tpl?.body ?? '', ...edit };
 
   function pick(next: string) {
@@ -46,10 +48,9 @@ export function Templates() {
 
   return (
     <div className="space-y-5">
-      <PageHeader title="Document templates" />
+      <PageHeader title={t('templates.title')} />
       <p className="text-sm text-slate-400">
-        These fill a puppy sale pack: contract, deposit receipt, health guarantee, and microchip keeper transfer.
-        Placeholders look like <code className="text-slate-300">{'{{puppy_name}}'}</code>. A token with no value is rejected rather than left blank.
+        {t('templates.intro')}
       </p>
 
       {q.loading && !q.data ? (
@@ -57,29 +58,29 @@ export function Templates() {
       ) : q.error ? (
         <p className="text-sm text-rose-300">{q.error}</p>
       ) : !tpl ? (
-        <p className="text-sm text-slate-400">No templates.</p>
+        <p className="text-sm text-slate-400">{t('templates.none')}</p>
       ) : (
         <div className="grid gap-4 lg:grid-cols-[14rem_1fr]">
-          <nav className="space-y-1" aria-label="Templates">
-            {templates.map((t) => (
+          <nav className="space-y-1" aria-label={t('templates.nav')}>
+            {templates.map((row) => (
               <button
-                key={t.slug}
+                key={row.slug}
                 type="button"
-                onClick={() => pick(t.slug)}
+                onClick={() => pick(row.slug)}
                 className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm ${
-                  t.slug === tpl.slug ? 'bg-slate-800 text-white' : 'text-slate-300 hover:bg-slate-800/60'
+                  row.slug === tpl.slug ? 'bg-slate-800 text-white' : 'text-slate-300 hover:bg-slate-800/60'
                 }`}
               >
-                <span>{t.title}</span>
-                {t.customised && <Badge className="bg-indigo-500/15 text-indigo-300 ring-indigo-500/30">edited</Badge>}
+                <span>{row.title}</span>
+                {row.customised && <Badge className="bg-indigo-500/15 text-indigo-300 ring-indigo-500/30">{t('common.edited')}</Badge>}
               </button>
             ))}
           </nav>
           <Card className="space-y-3 p-4">
-            <Field label="Title">
+            <Field label={t('common.title')}>
               <Input value={form.title} onChange={(e) => setEdit({ ...edit, title: e.target.value })} />
             </Field>
-            <Field label="Body" hint={`Tokens: ${(tpl.tokens ?? []).join(', ') || 'none'}`}>
+            <Field label={t('common.body')} hint={t('templates.tokens', { list: (tpl.tokens ?? []).join(', ') || t('templates.noTokens') })}>
               <textarea
                 className={areaCls}
                 value={form.body}
@@ -87,7 +88,7 @@ export function Templates() {
                 spellCheck={false}
               />
             </Field>
-            <Btn variant="primary" disabled={busy} onClick={save}>Save template</Btn>
+            <Btn variant="primary" disabled={busy} onClick={save}>{t('templates.save')}</Btn>
           </Card>
         </div>
       )}

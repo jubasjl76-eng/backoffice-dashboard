@@ -1,9 +1,9 @@
 import { useState, type DragEvent } from 'react';
 import { Link } from 'react-router-dom';
+import { useDates, useT } from '../i18n';
 import { api, apiDownload, apiOpen, apiUpload } from '../lib/api';
-import { useQuery, useMutation } from '../lib/useApi';
+import { useMutation, useQuery } from '../lib/useApi';
 import { Badge, Btn, Field, Input, Select, Spinner } from './ui';
-import { shortDate, titleCase } from '../lib/format';
 
 const DOC_KINDS = ['registration', 'contract', 'receipt', 'guarantee', 'certificate', 'handoff', 'photo', 'other'] as const;
 
@@ -46,6 +46,7 @@ export function GenerateDoc({
   subjectId: string;
   onGenerated?: () => void;
 }) {
+  const { t } = useT();
   const q = useQuery<{ templates: Template[] }>('/breeder/documents/templates');
   const [run, busy] = useMutation();
   const [slug, setSlug] = useState('contract');
@@ -53,9 +54,9 @@ export function GenerateDoc({
   const [preview, setPreview] = useState<{ id: string; title: string; body: string } | null>(null);
 
   const templates = q.data?.templates ?? [];
-  const tpl = templates.find((t) => t.slug === slug) ?? templates[0];
-  const extras = (tpl?.tokens ?? []).filter((t) => !AUTO_TOKENS.has(t));
-  const autos = (tpl?.tokens ?? []).filter((t) => AUTO_TOKENS.has(t));
+  const tpl = templates.find((row) => row.slug === slug) ?? templates[0];
+  const extras = (tpl?.tokens ?? []).filter((tok) => !AUTO_TOKENS.has(tok));
+  const autos = (tpl?.tokens ?? []).filter((tok) => AUTO_TOKENS.has(tok));
 
   function pick(next: string) {
     setSlug(next);
@@ -82,24 +83,24 @@ export function GenerateDoc({
   }
 
   if (q.loading && !q.data) return <Spinner />;
-  if (!tpl) return <p className="text-xs text-slate-400">No templates available.</p>;
+  if (!tpl) return <p className="text-xs text-slate-400">{t('docs.noTemplates')}</p>;
 
   return (
     <div className="space-y-3 rounded-lg border border-slate-800 p-3">
       <div className="flex items-center justify-between gap-2">
-        <div className="font-medium text-slate-200">Generate paperwork</div>
-        <Link to="/templates" className="text-xs text-indigo-400 hover:text-indigo-300">Edit templates</Link>
+        <div className="font-medium text-slate-200">{t('docs.generate')}</div>
+        <Link to="/templates" className="text-xs text-indigo-400 hover:text-indigo-300">{t('docs.editTemplates')}</Link>
       </div>
-      <Field label="Template">
+      <Field label={t('docs.template')}>
         <Select value={tpl.slug} onChange={(e) => pick(e.target.value)}>
-          {templates.map((t) => (
-            <option key={t.slug} value={t.slug}>{t.title}</option>
+          {templates.map((row) => (
+            <option key={row.slug} value={row.slug}>{row.title}</option>
           ))}
         </Select>
       </Field>
       {autos.length > 0 && (
         <p className="text-xs text-slate-400">
-          Auto-filled when known: {autos.join(', ')}. Override below only if a value is missing.
+          {t('docs.autoFilled', { list: autos.join(', ') })}
         </p>
       )}
       <div className="grid gap-2 sm:grid-cols-2">
@@ -107,24 +108,24 @@ export function GenerateDoc({
           <Field key={tok} label={tok.replace(/_/g, ' ')}>
             <Input
               value={values[tok] ?? ''}
-              placeholder={AUTO_TOKENS.has(tok) ? 'auto' : ''}
+              placeholder={AUTO_TOKENS.has(tok) ? t('docs.auto') : ''}
               onChange={(e) => setValues({ ...values, [tok]: e.target.value })}
             />
           </Field>
         ))}
       </div>
-      <Btn variant="primary" disabled={busy} onClick={generate}>Generate</Btn>
+      <Btn variant="primary" disabled={busy} onClick={generate}>{t('common.generate')}</Btn>
       {preview && (
         <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-slate-100">{preview.title}</span>
-            <Btn size="sm" variant="ghost" onClick={() => run(() => apiOpen(`/breeder/documents/${preview.id}/download`))}>Open</Btn>
+            <Btn size="sm" variant="ghost" onClick={() => run(() => apiOpen(`/breeder/documents/${preview.id}/download`))}>{t('common.open')}</Btn>
             <Btn
               size="sm"
               variant="ghost"
               onClick={() => run(() => apiDownload(`/breeder/documents/${preview.id}/download`, `${preview.title}.md`))}
             >
-              Download
+              {t('common.download')}
             </Btn>
           </div>
           <pre className="max-h-64 overflow-auto whitespace-pre-wrap rounded-lg border border-slate-800 bg-slate-950/60 p-3 text-xs text-slate-300">{preview.body}</pre>
@@ -154,6 +155,8 @@ export function DocumentsPanel({
   generate?: boolean;
   onGenerated?: () => void;
 }) {
+  const { t, label } = useT();
+  const { shortDate } = useDates();
   const q = useQuery<{ documents: DocRow[] }>(
     `/breeder/documents?subjectType=${subjectType}&subjectId=${subjectId}`
   );
@@ -184,7 +187,7 @@ export function DocumentsPanel({
   }
 
   async function remove(d: DocRow) {
-    if (!confirm(`Delete “${d.title || d.filename}”?`)) return;
+    if (!confirm(t('docs.deleteConfirm', { name: d.title || d.filename || '' }))) return;
     const r = await run(() => api(`/breeder/documents/${d.id}`, { method: 'DELETE' }));
     if (r) q.reload();
   }
@@ -213,19 +216,19 @@ export function DocumentsPanel({
         className={`rounded-lg border border-dashed p-3 ${over ? 'border-indigo-400 bg-indigo-500/10' : 'border-slate-700'}`}
       >
         <div className="grid gap-2 sm:grid-cols-2">
-          <Field label="Kind">
+          <Field label={t('docs.kind')}>
             <Select value={kind} onChange={(e) => setKind(e.target.value)}>
               {DOC_KINDS.map((k) => (
-                <option key={k} value={k}>{titleCase(k)}</option>
+                <option key={k} value={k}>{label('docKind', k)}</option>
               ))}
             </Select>
           </Field>
-          <Field label="Title (optional)">
-            <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="defaults to filename" />
+          <Field label={t('docs.titleOptional')}>
+            <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={t('docs.titlePh')} />
           </Field>
         </div>
         <label className="mt-2 block cursor-pointer text-xs text-slate-400">
-          Drop a file here or click to choose (max 15 MB)
+          {t('docs.drop')}
           <input
             type="file"
             className="sr-only"
@@ -242,29 +245,29 @@ export function DocumentsPanel({
       {q.loading && !q.data ? (
         <Spinner />
       ) : docs.length === 0 ? (
-        <p className="text-xs text-slate-400">No papers yet.</p>
+        <p className="text-xs text-slate-400">{t('docs.none')}</p>
       ) : (
         <ul className="space-y-2">
           {docs.map((d) => (
             <li key={d.id} className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-800 p-2">
-              <Badge className="bg-slate-800 text-slate-300 ring-slate-700">{titleCase(d.kind)}</Badge>
+              <Badge className="bg-slate-800 text-slate-300 ring-slate-700">{label('docKind', d.kind)}</Badge>
               <div className="min-w-0 flex-1">
                 <div className="truncate text-slate-100">{d.title || d.filename}</div>
                 <div className="text-xs text-slate-400">
-                  {d.generated ? 'generated' : bytes(d.size_bytes)}
+                  {d.generated ? t('common.generated') : bytes(d.size_bytes)}
                   {d.created_at ? ` · ${shortDate(d.created_at)}` : ''}
                 </div>
               </div>
-              <Btn size="sm" variant="ghost" disabled={busy} onClick={() => run(() => apiOpen(`/breeder/documents/${d.id}/download`))}>Open</Btn>
+              <Btn size="sm" variant="ghost" disabled={busy} onClick={() => run(() => apiOpen(`/breeder/documents/${d.id}/download`))}>{t('common.open')}</Btn>
               <Btn
                 size="sm"
                 variant="ghost"
                 disabled={busy}
                 onClick={() => run(() => apiDownload(`/breeder/documents/${d.id}/download`, d.filename || d.title || 'document'))}
               >
-                Download
+                {t('common.download')}
               </Btn>
-              <Btn size="sm" variant="ghost" disabled={busy} onClick={() => remove(d)}>Delete</Btn>
+              <Btn size="sm" variant="ghost" disabled={busy} onClick={() => remove(d)}>{t('common.delete')}</Btn>
             </li>
           ))}
         </ul>

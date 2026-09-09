@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { LocaleProvider } from './i18n';
 import { AuthProvider, RequireAuth } from './lib/auth';
 import { Layout } from './components/Layout';
 import { Login } from './pages/Login';
@@ -24,38 +25,40 @@ import { Privacy } from './pages/Privacy';
 export default function App() {
   return (
     <BrowserRouter>
-      <AuthProvider>
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route
-            element={
-              <RequireAuth>
-                <Layout />
-              </RequireAuth>
-            }
-          >
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/inbox" element={<CareInbox />} />
-            <Route path="/animals" element={<Animals />} />
-            <Route path="/pens" element={<Pens />} />
-            <Route path="/litters" element={<Litters />} />
-            <Route path="/calendar" element={<Calendar />} />
-            <Route path="/templates" element={<Templates />} />
-            <Route path="/buyers" element={<Buyers />} />
-            <Route path="/meds" element={<Meds />} />
-            <Route path="/vaccinations" element={<Vaccinations />} />
-            <Route path="/go-home/:pupId" element={<GoHomePack />} />
-            <Route path="/rules" element={<Rules />} />
-            <Route path="/devices" element={<Devices />} />
-            <Route path="/ops" element={<Ops />} />
-            <Route path="/website" element={<Website />} />
-            <Route path="/notifications" element={<Notifications />} />
-            <Route path="/privacy" element={<Privacy />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Route>
-        </Routes>
-      </AuthProvider>
+      <LocaleProvider>
+        <AuthProvider>
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route
+              element={
+                <RequireAuth>
+                  <Layout />
+                </RequireAuth>
+              }
+            >
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/inbox" element={<CareInbox />} />
+              <Route path="/animals" element={<Animals />} />
+              <Route path="/pens" element={<Pens />} />
+              <Route path="/litters" element={<Litters />} />
+              <Route path="/calendar" element={<Calendar />} />
+              <Route path="/templates" element={<Templates />} />
+              <Route path="/buyers" element={<Buyers />} />
+              <Route path="/meds" element={<Meds />} />
+              <Route path="/vaccinations" element={<Vaccinations />} />
+              <Route path="/go-home/:pupId" element={<GoHomePack />} />
+              <Route path="/rules" element={<Rules />} />
+              <Route path="/devices" element={<Devices />} />
+              <Route path="/ops" element={<Ops />} />
+              <Route path="/website" element={<Website />} />
+              <Route path="/notifications" element={<Notifications />} />
+              <Route path="/privacy" element={<Privacy />} />
+              <Route path="/settings" element={<Settings />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Route>
+          </Routes>
+        </AuthProvider>
+      </LocaleProvider>
     </BrowserRouter>
   );
 }

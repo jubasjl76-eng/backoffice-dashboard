@@ -1,16 +1,12 @@
 import { useState } from 'react';
-import { api } from '../lib/api';
-import { useQuery, useMutation } from '../lib/useApi';
-import { useAuth } from '../lib/auth';
 import { Badge, Btn, Card, Field, Input, PageHeader, Select, Spinner } from '../components/ui';
-import { shortDate, timeAgo, titleCase } from '../lib/format';
+import { useDates, useT } from '../i18n';
+import { api } from '../lib/api';
+import { useAuth } from '../lib/auth';
+import { useMutation, useQuery } from '../lib/useApi';
 
 const ACTIONS = ['document.download', 'privacy.export', 'privacy.delete', 'camera.view', 'door.open'];
 const SUBJECT_TYPES = ['buyer', 'animal', 'litter'] as const;
-const RETENTION_HINT: Record<string, string> = {
-  access_log: 'Who opened papers, exports and erasures. Empty keeps the log forever.',
-  document: 'Uploaded and generated files. Empty keeps them forever. A contract often needs years.',
-};
 
 interface LogEntry {
   id: number;
@@ -60,6 +56,8 @@ function downloadJson(filename: string, data: unknown) {
 }
 
 export function Privacy() {
+  const { t, label } = useT();
+  const { shortDate, timeAgo } = useDates();
   const { user } = useAuth();
   const [run, busy] = useMutation();
   const [action, setAction] = useState('');
@@ -101,6 +99,12 @@ export function Privacy() {
   const chosen = pool.find((r) => r.id === eraseId);
   const chosenName = chosen?.name?.trim() || '';
 
+  function retentionHint(dataClass: string): string | undefined {
+    if (dataClass === 'access_log') return t('privacy.hintAccess');
+    if (dataClass === 'document') return t('privacy.hintDocs');
+    return undefined;
+  }
+
   async function saveRetention(c: RetainClass) {
     const raw = daysEdit[c.dataClass] ?? (c.keepDays == null ? '' : String(c.keepDays));
     const keepDays = raw.trim() === '' ? 0 : Number(raw);
@@ -121,7 +125,7 @@ export function Privacy() {
   async function sweep() {
     const r = await run(() => api<{ accessLog: number; documents: number }>('/breeder/privacy/retention/run', { method: 'POST' }));
     if (r) {
-      alert(`Removed ${r.accessLog} log rows and ${r.documents} documents.`);
+      alert(t('privacy.swept', { log: r.accessLog, docs: r.documents }));
       log.reload();
     }
   }
@@ -155,14 +159,13 @@ export function Privacy() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Data & privacy" />
+      <PageHeader title={t('privacy.title')} />
       <p className="text-sm text-slate-400">
-        Access log of who opened papers, plus GDPR export and erasure for a buyer, animal or litter.
-        Owner records live in the pet-owner app (not built yet).
+        {t('privacy.intro')}
       </p>
 
       <Card className="space-y-4 p-5">
-        <h2 className="font-medium text-slate-200">Retention</h2>
+        <h2 className="font-medium text-slate-200">{t('privacy.retention')}</h2>
         {retention.loading && !retention.data ? (
           <Spinner />
         ) : retention.error ? (
@@ -173,28 +176,28 @@ export function Privacy() {
               const value = daysEdit[c.dataClass] ?? (c.keepDays == null ? '' : String(c.keepDays));
               return (
                 <div key={c.dataClass} className="space-y-2">
-                  <Field label={titleCase(c.dataClass)} hint={RETENTION_HINT[c.dataClass]}>
+                  <Field label={label('retentionClass', c.dataClass)} hint={retentionHint(c.dataClass)}>
                     <Input
                       type="number"
                       min={0}
-                      placeholder="off (keep forever)"
+                      placeholder={t('privacy.keepForever')}
                       value={value}
                       onChange={(e) => setDaysEdit({ ...daysEdit, [c.dataClass]: e.target.value })}
                     />
                   </Field>
-                  <Btn size="sm" disabled={busy} onClick={() => saveRetention(c)}>Save</Btn>
+                  <Btn size="sm" disabled={busy} onClick={() => saveRetention(c)}>{t('common.save')}</Btn>
                 </div>
               );
             })}
           </div>
         )}
-        <Btn size="sm" disabled={busy} onClick={sweep}>Run sweep now</Btn>
+        <Btn size="sm" disabled={busy} onClick={sweep}>{t('privacy.sweep')}</Btn>
       </Card>
 
       <Card className="space-y-4 p-5">
-        <h2 className="font-medium text-slate-200">Export or erase</h2>
+        <h2 className="font-medium text-slate-200">{t('privacy.exportErase')}</h2>
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Subject type">
+          <Field label={t('privacy.subjectType')}>
             <Select
               value={eraseType}
               onChange={(e) => {
@@ -203,14 +206,14 @@ export function Privacy() {
                 setTyped('');
               }}
             >
-              {SUBJECT_TYPES.map((t) => (
-                <option key={t} value={t}>{titleCase(t)}</option>
+              {SUBJECT_TYPES.map((st) => (
+                <option key={st} value={st}>{label('subjectType', st)}</option>
               ))}
             </Select>
           </Field>
-          <Field label="Subject">
+          <Field label={t('privacy.subject')}>
             <Select value={eraseId} onChange={(e) => { setEraseId(e.target.value); setTyped(''); }}>
-              <option value="">Select…</option>
+              <option value="">{t('common.select')}</option>
               {pool.map((r) => (
                 <option key={r.id} value={r.id}>{r.name || r.id}</option>
               ))}
@@ -218,55 +221,55 @@ export function Privacy() {
           </Field>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Btn variant="primary" disabled={busy || !eraseId} onClick={exportSubject}>Export JSON</Btn>
+          <Btn variant="primary" disabled={busy || !eraseId} onClick={exportSubject}>{t('privacy.exportJson')}</Btn>
         </div>
         {chosenName && (
           <div className="space-y-2 rounded-lg border border-rose-900/60 p-3">
             <p className="text-sm text-slate-400">
-              Erase {chosenName}? Type the name exactly. A litter with reserved or sold puppies, or an animal that is a litter parent, is refused.
+              {t('privacy.eraseAsk', { name: chosenName })}
             </p>
-            <Field label="Type the name to confirm">
+            <Field label={t('privacy.typeName')}>
               <Input value={typed} onChange={(e) => setTyped(e.target.value)} autoComplete="off" />
             </Field>
-            <Btn variant="danger" disabled={busy || typed !== chosenName} onClick={erase}>Erase</Btn>
+            <Btn variant="danger" disabled={busy || typed !== chosenName} onClick={erase}>{t('privacy.erase')}</Btn>
           </div>
         )}
       </Card>
 
       <Card className="space-y-4 p-5">
-        <h2 className="font-medium text-slate-200">Access log</h2>
+        <h2 className="font-medium text-slate-200">{t('privacy.accessLog')}</h2>
         <div className="grid gap-3 sm:grid-cols-3">
-          <Field label="Action">
+          <Field label={t('privacy.action')}>
             <Select value={action} onChange={(e) => setAction(e.target.value)}>
-              <option value="">All</option>
+              <option value="">{t('common.all')}</option>
               {ACTIONS.map((a) => (
                 <option key={a} value={a}>{a}</option>
               ))}
             </Select>
           </Field>
-          <Field label="Subject type">
+          <Field label={t('privacy.subjectType')}>
             <Select value={subjectType} onChange={(e) => setSubjectType(e.target.value)}>
-              <option value="">All</option>
-              {['buyer', 'animal', 'litter', 'puppy', 'document', 'device'].map((t) => (
-                <option key={t} value={t}>{titleCase(t)}</option>
+              <option value="">{t('common.all')}</option>
+              {['buyer', 'animal', 'litter', 'puppy', 'document', 'device'].map((st) => (
+                <option key={st} value={st}>{label('subjectType', st)}</option>
               ))}
             </Select>
           </Field>
-          <Field label="Subject id">
-            <Input value={subjectId} onChange={(e) => setSubjectId(e.target.value)} placeholder="uuid or device id" />
+          <Field label={t('privacy.subjectId')}>
+            <Input value={subjectId} onChange={(e) => setSubjectId(e.target.value)} placeholder={t('privacy.subjectIdPh')} />
           </Field>
-          <Field label="User">
+          <Field label={t('privacy.user')}>
             <Select value={userId} onChange={(e) => setUserId(e.target.value)}>
-              <option value="">All</option>
+              <option value="">{t('common.all')}</option>
               {(users.data?.users ?? []).map((u) => (
                 <option key={u.id} value={u.id}>{u.name || u.email}</option>
               ))}
             </Select>
           </Field>
-          <Field label="Since">
+          <Field label={t('privacy.since')}>
             <Input type="date" value={since} onChange={(e) => setSince(e.target.value)} />
           </Field>
-          <Field label="Until">
+          <Field label={t('privacy.until')}>
             <Input type="date" value={until} onChange={(e) => setUntil(e.target.value)} />
           </Field>
         </div>
@@ -276,7 +279,7 @@ export function Privacy() {
         ) : log.error ? (
           <p className="text-sm text-rose-300">{log.error}</p>
         ) : entries.length === 0 ? (
-          <p className="text-sm text-slate-400">No matching entries.</p>
+          <p className="text-sm text-slate-400">{t('privacy.noEntries')}</p>
         ) : (
           <ul className="divide-y divide-slate-800 text-sm">
             {entries.map((e) => (

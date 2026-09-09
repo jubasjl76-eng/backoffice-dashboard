@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { api } from '../lib/api';
-import { useQuery, useMutation } from '../lib/useApi';
 import { Badge, Btn, Card, EmptyState, Field, Input, PageHeader, Select, Spinner } from '../components/ui';
-import { titleCase } from '../lib/format';
+import { useT } from '../i18n';
+import { api } from '../lib/api';
+import { useMutation, useQuery } from '../lib/useApi';
 
 interface Pen {
   id: string;
@@ -21,6 +21,7 @@ interface Animal {
 const KINDS = ['whelping', 'run', 'yard', 'quarantine', 'kitchen'];
 
 export function Pens() {
+  const { t, label } = useT();
   const pens = useQuery<{ pens: Pen[] }>('/breeder/animals/pens');
   const animals = useQuery<{ animals: Animal[] }>('/breeder/animals');
   const [run, busy] = useMutation();
@@ -53,23 +54,23 @@ export function Pens() {
 
   return (
     <div className="space-y-5">
-      <PageHeader title="Pens">
-        <Btn variant="primary" onClick={() => setAdding(true)}>Add pen</Btn>
+      <PageHeader title={t('pens.title')}>
+        <Btn variant="primary" onClick={() => setAdding(true)}>{t('pens.add')}</Btn>
       </PageHeader>
 
       {adding && (
         <Card className="p-4">
           <div className="grid gap-3 sm:grid-cols-4">
-            <Field label="Name"><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></Field>
-            <Field label="Kind">
+            <Field label={t('common.name')}><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></Field>
+            <Field label={t('common.kind')}>
               <Select value={form.kind} onChange={(e) => setForm({ ...form, kind: e.target.value })}>
-                {KINDS.map((k) => <option key={k} value={k}>{titleCase(k)}</option>)}
+                {KINDS.map((k) => <option key={k} value={k}>{label('penKind', k)}</option>)}
               </Select>
             </Field>
-            <Field label="Capacity"><Input type="number" value={form.capacity} onChange={(e) => setForm({ ...form, capacity: e.target.value })} /></Field>
+            <Field label={t('pens.capacity')}><Input type="number" value={form.capacity} onChange={(e) => setForm({ ...form, capacity: e.target.value })} /></Field>
             <div className="flex items-end gap-2">
-              <Btn variant="primary" disabled={busy || !form.name} onClick={create}>Save</Btn>
-              <Btn variant="ghost" onClick={() => setAdding(false)}>Cancel</Btn>
+              <Btn variant="primary" disabled={busy || !form.name} onClick={create}>{t('common.save')}</Btn>
+              <Btn variant="ghost" onClick={() => setAdding(false)}>{t('common.cancel')}</Btn>
             </div>
           </div>
         </Card>
@@ -78,7 +79,7 @@ export function Pens() {
       {pens.loading && !pens.data ? (
         <Spinner />
       ) : list.length === 0 ? (
-        <EmptyState title="No pens yet" hint="Add whelping rooms, runs and yards so you can place dogs." />
+        <EmptyState title={t('pens.empty')} hint={t('pens.emptyHint')} />
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {list.map((p) => {
@@ -92,7 +93,7 @@ export function Pens() {
                     {occ.length}/{p.capacity}
                   </Badge>
                 </div>
-                <div className="mt-0.5 text-xs text-slate-500">{titleCase(p.kind)}</div>
+                <div className="mt-0.5 text-xs text-slate-500">{label('penKind', p.kind)}</div>
                 <ul className="mt-3 space-y-1.5">
                   {occ.map((d) => (
                     <li key={d.id} className="flex items-center gap-2 text-sm">
@@ -102,13 +103,13 @@ export function Pens() {
                         value={p.id}
                         onChange={(e) => move(d.id, e.target.value)}
                         disabled={busy}
-                        aria-label={`Move ${d.name}`}
+                        aria-label={t('pens.move', { name: d.name })}
                       >
                         {list.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
                       </Select>
                     </li>
                   ))}
-                  {occ.length === 0 && <li className="text-xs text-slate-600">empty</li>}
+                  {occ.length === 0 && <li className="text-xs text-slate-600">{t('common.empty')}</li>}
                 </ul>
               </Card>
             );
@@ -118,13 +119,13 @@ export function Pens() {
 
       {unassigned.length > 0 && (
         <Card className="p-4">
-          <h2 className="mb-2 text-sm font-medium text-slate-200">Unassigned dogs</h2>
+          <h2 className="mb-2 text-sm font-medium text-slate-200">{t('pens.unassigned')}</h2>
           <ul className="space-y-1.5">
             {unassigned.map((d) => (
               <li key={d.id} className="flex items-center gap-2 text-sm">
                 <span className="min-w-0 flex-1 truncate text-slate-200">{d.name}</span>
                 <Select className="w-40 !py-1 text-xs" defaultValue="" onChange={(e) => e.target.value && move(d.id, e.target.value)} disabled={busy}>
-                  <option value="" disabled>Place in pen…</option>
+                  <option value="" disabled>{t('pens.place')}</option>
                   {list.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
                 </Select>
               </li>

@@ -1,19 +1,11 @@
 import { useState } from 'react';
-import { api } from '../lib/api';
-import { useQuery, useMutation } from '../lib/useApi';
 import { Btn, Card, Field, Input, PageHeader, Select, Spinner } from '../components/ui';
+import { useT } from '../i18n';
+import { api } from '../lib/api';
+import { useMutation, useQuery } from '../lib/useApi';
 
 const CHANNELS = ['log', 'email', 'sms', 'webhook', 'siren', 'push'] as const;
 type Channel = (typeof CHANNELS)[number];
-
-const CHANNEL_LABEL: Record<Channel, string> = {
-  log: 'Log (console)',
-  email: 'Email',
-  sms: 'SMS',
-  webhook: 'Webhook',
-  siren: 'Siren',
-  push: 'Push',
-};
 
 interface QuietHours {
   start: string;
@@ -111,6 +103,7 @@ function toBody(d: Draft) {
 }
 
 export function Notifications() {
+  const { t, label } = useT();
   const q = useQuery<{ prefs: PrefsRow | null }>('/breeder/ops/notification-prefs');
   const [run, busy] = useMutation();
   const [edit, setEdit] = useState<Draft | null>(null);
@@ -160,12 +153,12 @@ export function Notifications() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Notification preferences">
+      <PageHeader title={t('notif.title')}>
         <Btn variant="primary" disabled={busy || q.loading} onClick={save}>
-          {busy ? 'Saving…' : 'Save'}
+          {busy ? t('notif.saving') : t('common.save')}
         </Btn>
       </PageHeader>
-      {saved && <p className="text-sm text-emerald-300">Saved.</p>}
+      {saved && <p className="text-sm text-emerald-300">{t('notif.saved')}</p>}
       {q.error && <p className="text-sm text-rose-300">{q.error}</p>}
 
       {q.loading && !q.data ? (
@@ -173,13 +166,12 @@ export function Notifications() {
       ) : (
         <>
           <Card className="p-5">
-            <h2 className="mb-1 font-medium text-slate-200">Channels</h2>
+            <h2 className="mb-1 font-medium text-slate-200">{t('notif.channels')}</h2>
             <p className="mb-3 text-xs text-slate-500">
-              Initial alert goes to every checked channel. Email and SMS only leave the
-              building when the backend has provider keys.
+              {t('notif.channelsHint')}
             </p>
             <fieldset>
-              <legend className="sr-only">Notification channels</legend>
+              <legend className="sr-only">{t('notif.channelsLegend')}</legend>
               <div className="grid gap-2 sm:grid-cols-2">
                 {CHANNELS.map((ch) => (
                   <label key={ch} className="flex items-center gap-2 text-sm text-slate-200">
@@ -189,13 +181,13 @@ export function Notifications() {
                       checked={draft.channels.includes(ch)}
                       onChange={() => toggleChannel(ch)}
                     />
-                    {CHANNEL_LABEL[ch]}
+                    {label('channel', ch)}
                   </label>
                 ))}
               </div>
             </fieldset>
             <div className="mt-4 grid gap-3 sm:grid-cols-3">
-              <Field label="Email" hint="Used when Email is checked">
+              <Field label={t('common.email')} hint={t('notif.emailHint')}>
                 <Input
                   type="email"
                   autoComplete="email"
@@ -203,7 +195,7 @@ export function Notifications() {
                   onChange={(e) => patch({ email: e.target.value })}
                 />
               </Field>
-              <Field label="SMS number" hint="E.164 if you can">
+              <Field label={t('notif.sms')} hint={t('notif.smsHint')}>
                 <Input
                   type="tel"
                   autoComplete="tel"
@@ -211,7 +203,7 @@ export function Notifications() {
                   onChange={(e) => patch({ smsNumber: e.target.value })}
                 />
               </Field>
-              <Field label="Webhook URL">
+              <Field label={t('notif.webhook')}>
                 <Input
                   type="url"
                   placeholder="https://…"
@@ -223,7 +215,7 @@ export function Notifications() {
           </Card>
 
           <Card className="p-5">
-            <h2 className="mb-3 font-medium text-slate-200">Quiet hours</h2>
+            <h2 className="mb-3 font-medium text-slate-200">{t('notif.quiet')}</h2>
             <label className="flex items-center gap-2 text-sm text-slate-200">
               <input
                 type="checkbox"
@@ -231,11 +223,11 @@ export function Notifications() {
                 checked={draft.quietOn}
                 onChange={(e) => patch({ quietOn: e.target.checked })}
               />
-              Hold non-urgent alerts overnight
+              {t('notif.quietHold')}
             </label>
             {draft.quietOn && (
               <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                <Field label="Start">
+                <Field label={t('notif.start')}>
                   <Input
                     type="time"
                     value={draft.quietHours.start}
@@ -244,7 +236,7 @@ export function Notifications() {
                     }
                   />
                 </Field>
-                <Field label="End">
+                <Field label={t('notif.end')}>
                   <Input
                     type="time"
                     value={draft.quietHours.end}
@@ -253,7 +245,7 @@ export function Notifications() {
                     }
                   />
                 </Field>
-                <Field label="Still ring for" hint="Log and siren always get through">
+                <Field label={t('notif.stillRing')} hint={t('notif.stillHint')}>
                   <Select
                     value={draft.quietHours.overrideSeverity ?? 'critical'}
                     onChange={(e) =>
@@ -265,8 +257,8 @@ export function Notifications() {
                       })
                     }
                   >
-                    <option value="critical">Critical only</option>
-                    <option value="warning">Warning and critical</option>
+                    <option value="critical">{t('notif.criticalOnly')}</option>
+                    <option value="warning">{t('notif.warningAnd')}</option>
                   </Select>
                 </Field>
               </div>
@@ -276,10 +268,9 @@ export function Notifications() {
           <Card className="p-5">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
               <div>
-                <h2 className="font-medium text-slate-200">Escalation chain</h2>
+                <h2 className="font-medium text-slate-200">{t('notif.escalation')}</h2>
                 <p className="mt-1 text-xs text-slate-500">
-                  If an alert is still open, fire the next step after N minutes. Target
-                  is optional — blank uses the contact fields above.
+                  {t('notif.escalationHint')}
                 </p>
               </div>
               <Btn
@@ -297,11 +288,11 @@ export function Notifications() {
                   })
                 }
               >
-                Add step
+                {t('notif.addStep')}
               </Btn>
             </div>
             {draft.steps.length === 0 ? (
-              <p className="text-sm text-slate-500">No escalation steps. The first notify is enough.</p>
+              <p className="text-sm text-slate-500">{t('notif.noSteps')}</p>
             ) : (
               <ol className="space-y-3">
                 {draft.steps.map((s, i) => (
@@ -310,7 +301,7 @@ export function Notifications() {
                     className="grid items-end gap-2 border-t border-slate-800 pt-3 sm:grid-cols-[auto_7rem_1fr_1fr_auto] first:border-0 first:pt-0"
                   >
                     <span className="pb-2 text-xs text-slate-500">{i + 1}</span>
-                    <Field label="After (min)">
+                    <Field label={t('notif.afterMin')}>
                       <Input
                         type="number"
                         min={1}
@@ -318,27 +309,27 @@ export function Notifications() {
                         onChange={(e) => patchStep(i, { afterMin: Number(e.target.value) || 1 })}
                       />
                     </Field>
-                    <Field label="Channel">
+                    <Field label={t('notif.channel')}>
                       <Select
                         value={s.channel}
                         onChange={(e) => patchStep(i, { channel: e.target.value as Channel })}
                       >
                         {CHANNELS.map((ch) => (
                           <option key={ch} value={ch}>
-                            {CHANNEL_LABEL[ch]}
+                            {label('channel', ch)}
                           </option>
                         ))}
                       </Select>
                     </Field>
-                    <Field label="Target">
+                    <Field label={t('notif.target')}>
                       <Input
-                        placeholder="number, email, or URL"
+                        placeholder={t('notif.targetPh')}
                         value={s.target}
                         onChange={(e) => patchStep(i, { target: e.target.value })}
                       />
                     </Field>
                     <div className="flex gap-1 pb-0.5">
-                      <Btn size="sm" variant="ghost" disabled={i === 0} onClick={() => moveStep(i, -1)} aria-label="Move up">
+                      <Btn size="sm" variant="ghost" disabled={i === 0} onClick={() => moveStep(i, -1)} aria-label={t('common.moveUp')}>
                         ↑
                       </Btn>
                       <Btn
@@ -346,7 +337,7 @@ export function Notifications() {
                         variant="ghost"
                         disabled={i === draft.steps.length - 1}
                         onClick={() => moveStep(i, 1)}
-                        aria-label="Move down"
+                        aria-label={t('common.moveDown')}
                       >
                         ↓
                       </Btn>
@@ -355,7 +346,7 @@ export function Notifications() {
                         variant="ghost"
                         onClick={() => patch({ steps: draft.steps.filter((_, j) => j !== i) })}
                       >
-                        Remove
+                        {t('common.remove')}
                       </Btn>
                     </div>
                   </li>

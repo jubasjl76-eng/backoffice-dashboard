@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { api } from '../lib/api';
-import { useQuery, useMutation } from '../lib/useApi';
-import { Badge, Btn, Card, Drawer, EmptyState, Field, Input, PageHeader, Select, Spinner } from '../components/ui';
+import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { DocumentsPanel } from '../components/Documents';
-import { shortDate, titleCase } from '../lib/format';
+import { Badge, Btn, Card, Drawer, EmptyState, Field, Input, PageHeader, Select, Spinner } from '../components/ui';
+import { useDates, useT } from '../i18n';
+import { api } from '../lib/api';
+import { useMutation, useQuery } from '../lib/useApi';
 import { ProgesteroneForm, RecordMating } from './Calendar';
 
 interface Litter {
@@ -50,6 +50,8 @@ const STATUS_TONE: Record<string, string> = {
 };
 
 export function Litters() {
+  const { t, label } = useT();
+  const { shortDate } = useDates();
   const q = useQuery<{ litters: Litter[] }>('/breeder/litters');
   const animals = useQuery<{ animals: Animal[] }>('/breeder/animals');
   const [run, busy] = useMutation();
@@ -81,7 +83,7 @@ export function Litters() {
   }
 
   async function whelp(l: Litter) {
-    const born = prompt('Puppies born alive?');
+    const born = prompt(t('litters.puppiesBorn'));
     if (born == null) return;
     const r = await run(() =>
       api(`/breeder/litters/${l.id}/whelp`, { method: 'POST', body: { countBorn: Number(born), countAlive: Number(born) } })
@@ -95,15 +97,15 @@ export function Litters() {
 
   return (
     <div className="space-y-5">
-      <PageHeader title="Litters">
-        <Link to="/calendar" className="text-sm text-indigo-400 hover:text-indigo-300">Calendar →</Link>
-        <Btn variant="primary" onClick={() => setAdding(true)}>Plan litter</Btn>
+      <PageHeader title={t('litters.title')}>
+        <Link to="/calendar" className="text-sm text-indigo-400 hover:text-indigo-300">{t('litters.calendar')}</Link>
+        <Btn variant="primary" onClick={() => setAdding(true)}>{t('litters.plan')}</Btn>
       </PageHeader>
 
       {q.loading && !q.data ? (
         <Spinner />
       ) : litters.length === 0 ? (
-        <EmptyState title="No litters yet" hint="Plan a litter to track the pregnancy, whelping and puppies." />
+        <EmptyState title={t('litters.empty')} hint={t('litters.emptyHint')} />
       ) : (
         <ul className="space-y-2">
           {litters.map((l) => (
@@ -112,54 +114,54 @@ export function Litters() {
                 <button className="min-w-0 flex-1 text-left" onClick={() => setOpenId(l.id)}>
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-medium text-slate-100">{l.name || `${l.dam_name ?? '?'} × ${l.sire_name ?? '?'}`}</span>
-                    <Badge className={STATUS_TONE[l.status] ?? STATUS_TONE.planned}>{titleCase(l.status)}</Badge>
+                    <Badge className={STATUS_TONE[l.status] ?? STATUS_TONE.planned}>{label('litterStatus', l.status)}</Badge>
                   </div>
                   <div className="mt-0.5 flex flex-wrap gap-x-3 text-xs text-slate-500">
                     <span>{l.dam_name ?? '?'} × {l.sire_name ?? '?'}</span>
-                    {l.whelped_at ? <span>whelped {shortDate(l.whelped_at)}</span> : l.due_on ? <span>due {shortDate(l.due_on)}</span> : l.mated_on ? <span>mated {shortDate(l.mated_on)}</span> : null}
-                    <span>{l.puppy_count} pups · {l.available_count} available · {l.placed_count} placed</span>
+                    {l.whelped_at ? <span>{t('litters.whelped', { date: shortDate(l.whelped_at) })}</span> : l.due_on ? <span>{t('litters.due', { date: shortDate(l.due_on) })}</span> : l.mated_on ? <span>{t('litters.mated', { date: shortDate(l.mated_on) })}</span> : null}
+                    <span>{t('litters.pupCounts', { pups: l.puppy_count, available: l.available_count, placed: l.placed_count })}</span>
                   </div>
                 </button>
                 {l.status === 'planned' && !l.mated_on && (
-                  <Btn size="sm" variant="primary" onClick={() => setMateId(l.id)}>Record mating</Btn>
+                  <Btn size="sm" variant="primary" onClick={() => setMateId(l.id)}>{t('litters.recordMating')}</Btn>
                 )}
                 {(['expecting', 'mated'].includes(l.status) || l.mated_on) && !l.whelped_at && (
-                  <Btn size="sm" variant="ghost" onClick={() => setProgId(l.id)}>Progesterone</Btn>
+                  <Btn size="sm" variant="ghost" onClick={() => setProgId(l.id)}>{t('litters.progesterone')}</Btn>
                 )}
                 {['planned', 'expecting', 'mated'].includes(l.status) && (
-                  <Btn size="sm" disabled={busy} onClick={() => whelp(l)}>Mark whelped</Btn>
+                  <Btn size="sm" disabled={busy} onClick={() => whelp(l)}>{t('litters.markWhelped')}</Btn>
                 )}
-                <Btn size="sm" variant="ghost" onClick={() => setPapersId(l.id)}>Papers</Btn>
+                <Btn size="sm" variant="ghost" onClick={() => setPapersId(l.id)}>{t('common.papers')}</Btn>
               </Card>
             </li>
           ))}
         </ul>
       )}
 
-      <Drawer open={adding} onClose={() => setAdding(false)} title="Plan litter">
+      <Drawer open={adding} onClose={() => setAdding(false)} title={t('litters.plan')}>
         <div className="space-y-3">
-          <Field label="Name (optional)"><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></Field>
-          <Field label="Dam">
+          <Field label={t('litters.nameOptional')}><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></Field>
+          <Field label={t('common.dam')}>
             <Select value={form.damId} onChange={(e) => setForm({ ...form, damId: e.target.value })}>
               <option value="">—</option>
               {dams.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
             </Select>
           </Field>
-          <Field label="Sire">
+          <Field label={t('common.sire')}>
             <Select value={form.sireId} onChange={(e) => setForm({ ...form, sireId: e.target.value })}>
               <option value="">—</option>
               {sires.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
             </Select>
           </Field>
-          <Field label="Due date"><Input type="date" value={form.dueOn} onChange={(e) => setForm({ ...form, dueOn: e.target.value })} /></Field>
-          <Btn variant="primary" disabled={busy} onClick={create}>Save</Btn>
+          <Field label={t('litters.dueDate')}><Input type="date" value={form.dueOn} onChange={(e) => setForm({ ...form, dueOn: e.target.value })} /></Field>
+          <Btn variant="primary" disabled={busy} onClick={create}>{t('common.save')}</Btn>
         </div>
       </Drawer>
 
-      <Drawer open={!!openId} onClose={() => setOpenId(null)} title="Puppies">
+      <Drawer open={!!openId} onClose={() => setOpenId(null)} title={t('litters.puppies')}>
         {openId && <LitterPuppies litterId={openId} />}
       </Drawer>
-      <Drawer open={!!mateId} onClose={() => setMateId(null)} title="Record mating">
+      <Drawer open={!!mateId} onClose={() => setMateId(null)} title={t('litters.recordMating')}>
         {mateId && (
           <RecordMating
             litterId={mateId}
@@ -170,10 +172,10 @@ export function Litters() {
           />
         )}
       </Drawer>
-      <Drawer open={!!progId} onClose={() => setProgId(null)} title="Progesterone">
+      <Drawer open={!!progId} onClose={() => setProgId(null)} title={t('litters.progesterone')}>
         {progId && <ProgesteroneForm litterId={progId} onDone={() => q.reload()} />}
       </Drawer>
-      <Drawer open={!!papersId} onClose={() => setPapersId(null)} title="Litter papers">
+      <Drawer open={!!papersId} onClose={() => setPapersId(null)} title={t('litters.litterPapers')}>
         {papersId && <DocumentsPanel subjectType="litter" subjectId={papersId} defaultKind="other" />}
       </Drawer>
     </div>
@@ -181,6 +183,7 @@ export function Litters() {
 }
 
 function LitterPuppies({ litterId }: { litterId: string }) {
+  const { t, label } = useT();
   const q = useQuery<{ puppies: Puppy[] }>(`/breeder/litters/${litterId}/puppies`);
   const [run, busy] = useMutation();
   const [form, setForm] = useState({ name: '', collarColor: '', sex: 'female', birthWeightG: '' });
@@ -205,7 +208,7 @@ function LitterPuppies({ litterId }: { litterId: string }) {
   }
 
   async function addWeight(pupId: string) {
-    const g = prompt('Weight in grams?');
+    const g = prompt(t('litters.weightPrompt'));
     if (!g) return;
     const r = await run(() => api(`/breeder/litters/puppies/${pupId}/weights`, { method: 'POST', body: { grams: Number(g) } }));
     if (r) q.reload();
@@ -225,23 +228,23 @@ function LitterPuppies({ litterId }: { litterId: string }) {
     <div className="space-y-4 text-sm">
       <Card className="p-3">
         <div className="grid grid-cols-2 gap-2">
-          <Field label="Name"><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></Field>
-          <Field label="Collar colour"><Input value={form.collarColor} onChange={(e) => setForm({ ...form, collarColor: e.target.value })} /></Field>
-          <Field label="Sex">
+          <Field label={t('common.name')}><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></Field>
+          <Field label={t('litters.collar')}><Input value={form.collarColor} onChange={(e) => setForm({ ...form, collarColor: e.target.value })} /></Field>
+          <Field label={t('common.sex')}>
             <Select value={form.sex} onChange={(e) => setForm({ ...form, sex: e.target.value })}>
-              <option value="female">Female</option>
-              <option value="male">Male</option>
+              <option value="female">{label('sex', 'female')}</option>
+              <option value="male">{label('sex', 'male')}</option>
             </Select>
           </Field>
-          <Field label="Birth weight (g)"><Input type="number" value={form.birthWeightG} onChange={(e) => setForm({ ...form, birthWeightG: e.target.value })} /></Field>
+          <Field label={t('litters.birthWeight')}><Input type="number" value={form.birthWeightG} onChange={(e) => setForm({ ...form, birthWeightG: e.target.value })} /></Field>
         </div>
-        <Btn className="mt-2" variant="primary" size="sm" disabled={busy || !form.name} onClick={addPuppy}>Add puppy</Btn>
+        <Btn className="mt-2" variant="primary" size="sm" disabled={busy || !form.name} onClick={addPuppy}>{t('litters.addPuppy')}</Btn>
       </Card>
 
       {q.loading && !q.data ? (
         <Spinner />
       ) : puppies.length === 0 ? (
-        <p className="text-slate-500">No puppies recorded yet.</p>
+        <p className="text-slate-500">{t('litters.noPuppies')}</p>
       ) : (
         <>
           {chartData.length > 0 && (
@@ -276,22 +279,22 @@ function LitterPuppies({ litterId }: { litterId: string }) {
                             : 'bg-emerald-500/10 text-emerald-300 ring-emerald-500/30'
                       }
                     >
-                      {p.assessment.flag}
+                      {label('puppyFlag', p.assessment.flag)}
                     </Badge>
                   )}
                   <span className="text-xs text-slate-500">
-                    {p.weights.length ? `${p.weights[p.weights.length - 1].grams} g` : 'no weight'}
-                    {p.dailyGainG != null && ` · +${Math.round(p.dailyGainG)} g/d`}
+                    {p.weights.length ? `${p.weights[p.weights.length - 1].grams} g` : t('litters.noWeight')}
+                    {p.dailyGainG != null && t('litters.dailyGain', { n: Math.round(p.dailyGainG) })}
                   </span>
                   <span className="ml-auto flex items-center gap-1">
                     <Badge className="bg-slate-800 text-slate-400 ring-slate-700">{p.status}</Badge>
-                    <Btn size="sm" variant="ghost" disabled={busy} onClick={() => addWeight(p.id)}>+ weight</Btn>
-                    <Btn size="sm" variant="ghost" onClick={() => setPapersPup(p)}>Papers</Btn>
+                    <Btn size="sm" variant="ghost" disabled={busy} onClick={() => addWeight(p.id)}>{t('litters.addWeight')}</Btn>
+                    <Btn size="sm" variant="ghost" onClick={() => setPapersPup(p)}>{t('common.papers')}</Btn>
                     <Link
                       to={`/go-home/${p.id}`}
                       className="rounded-lg px-2.5 py-1 text-xs text-slate-300 hover:bg-slate-800 hover:text-white"
                     >
-                      Go-home pack
+                      {t('litters.goHome')}
                     </Link>
                   </span>
                 </Card>
@@ -304,8 +307,8 @@ function LitterPuppies({ litterId }: { litterId: string }) {
       {papersPup && (
         <div className="rounded-lg border border-slate-800 p-3">
           <div className="mb-2 flex items-center justify-between gap-2">
-            <h3 className="font-medium text-slate-200">{papersPup.name} · papers</h3>
-            <Btn size="sm" variant="ghost" onClick={() => setPapersPup(null)}>Close</Btn>
+            <h3 className="font-medium text-slate-200">{t('litters.pupPapers', { name: papersPup.name })}</h3>
+            <Btn size="sm" variant="ghost" onClick={() => setPapersPup(null)}>{t('common.close')}</Btn>
           </div>
           <DocumentsPanel subjectType="puppy" subjectId={papersPup.id} defaultKind="certificate" generate />
         </div>

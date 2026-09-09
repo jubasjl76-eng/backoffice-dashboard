@@ -1,10 +1,11 @@
 import { useCallback, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { api } from '../lib/api';
-import { useQuery, useMutation } from '../lib/useApi';
-import { useStream } from '../lib/stream';
 import { Badge, Btn, Card, Drawer, EmptyState, PageHeader, Spinner } from '../components/ui';
-import { severityClass, timeAgo, titleCase } from '../lib/format';
+import { useDates, useT } from '../i18n';
+import { api } from '../lib/api';
+import { severityClass } from '../lib/format';
+import { useMutation, useQuery } from '../lib/useApi';
+import { useStream } from '../lib/stream';
 
 interface Exception {
   id: string;
@@ -34,13 +35,15 @@ interface Notification {
 }
 
 const FILTERS = [
-  { key: 'active', label: 'Needs action' },
-  { key: 'all', label: 'All' },
-  { key: 'resolved', label: 'Resolved' },
-  { key: 'snoozed', label: 'Snoozed' },
-];
+  { key: 'active', label: 'inbox.needsAction' },
+  { key: 'all', label: 'common.all' },
+  { key: 'resolved', label: 'inbox.resolved' },
+  { key: 'snoozed', label: 'inbox.snoozedFilter' },
+] as const;
 
 export function CareInbox() {
+  const { t, label } = useT();
+  const { timeAgo } = useDates();
   const [filter, setFilter] = useState('active');
   const q = useQuery<InboxResp>(`/breeder/inbox?status=${filter}`);
   const overdueVax = useQuery<{ records: { id: string }[] }>('/breeder/vaccinations?status=overdue');
@@ -65,14 +68,14 @@ export function CareInbox() {
 
   return (
     <div className="space-y-5">
-      <PageHeader title="Care inbox">
+      <PageHeader title={t('inbox.title')}>
         <div className="flex gap-4 text-xs text-slate-400">
-          <span><b className="text-slate-200">{q.data?.counts.open ?? 0}</b> open</span>
-          <span><b className="text-rose-300">{q.data?.counts.critical ?? 0}</b> critical</span>
-          <span><b className="text-slate-200">{q.data?.counts.snoozed ?? 0}</b> snoozed</span>
+          <span><b className="text-slate-200">{q.data?.counts.open ?? 0}</b> {t('inbox.open')}</span>
+          <span><b className="text-rose-300">{q.data?.counts.critical ?? 0}</b> {t('inbox.critical')}</span>
+          <span><b className="text-slate-200">{q.data?.counts.snoozed ?? 0}</b> {t('inbox.snoozed')}</span>
           {overdueN > 0 && (
             <Link to="/vaccinations" className="text-rose-300 hover:underline">
-              <b>{overdueN}</b> vaccinations overdue
+              {t('inbox.vaxOverdue', { n: overdueN })}
             </Link>
           )}
         </div>
@@ -81,7 +84,7 @@ export function CareInbox() {
       <div className="flex flex-wrap gap-1">
         {FILTERS.map((f) => (
           <Btn key={f.key} size="sm" variant={filter === f.key ? 'primary' : 'ghost'} onClick={() => setFilter(f.key)}>
-            {f.label}
+            {t(f.label)}
           </Btn>
         ))}
       </div>
@@ -89,9 +92,9 @@ export function CareInbox() {
       {q.loading && !q.data ? (
         <Spinner />
       ) : q.error ? (
-        <EmptyState title="Couldn't load the inbox" hint={q.error} />
+        <EmptyState title={t('inbox.loadError')} hint={q.error} />
       ) : items.length === 0 ? (
-        <EmptyState title="Inbox zero" hint="No care items match this filter." />
+        <EmptyState title={t('inbox.zero')} hint={t('inbox.zeroHint')} />
       ) : (
         <ul className="space-y-2">
           {items.map((it) => (
@@ -100,11 +103,13 @@ export function CareInbox() {
                 <div className="flex items-start gap-3">
                   <button className="min-w-0 flex-1 text-left" onClick={() => setOpenId(it.id)}>
                     <div className="flex flex-wrap items-center gap-2">
-                      <Badge className={severityClass[it.severity] ?? severityClass.info}>{it.severity}</Badge>
-                      <span className="text-xs text-slate-500">{titleCase(it.kind)}</span>
-                      {it.status !== 'open' && <Badge className="bg-slate-700/40 text-slate-300 ring-slate-600/40">{it.status}</Badge>}
+                      <Badge className={severityClass[it.severity] ?? severityClass.info}>{label('severity', it.severity)}</Badge>
+                      <span className="text-xs text-slate-500">{label('kind', it.kind)}</span>
+                      {it.status !== 'open' && (
+                        <Badge className="bg-slate-700/40 text-slate-300 ring-slate-600/40">{label('inboxStatus', it.status)}</Badge>
+                      )}
                       {it.escalation_step > 0 && (
-                        <Badge className="bg-rose-500/15 text-rose-300 ring-rose-500/30">esc {it.escalation_step}</Badge>
+                        <Badge className="bg-rose-500/15 text-rose-300 ring-rose-500/30">{t('inbox.esc', { n: it.escalation_step })}</Badge>
                       )}
                     </div>
                     <div className="mt-1 font-medium text-slate-100">{it.title}</div>
@@ -113,24 +118,24 @@ export function CareInbox() {
                       {it.animal_name && <span>🐕 {it.animal_name}</span>}
                       {it.pen_name && <span>▦ {it.pen_name}</span>}
                       <span>{timeAgo(it.created_at)}</span>
-                      {it.snoozed_until && <span>· snoozed → {timeAgo(it.snoozed_until)}</span>}
+                      {it.snoozed_until && <span>{t('inbox.snoozedUntil', { when: timeAgo(it.snoozed_until) })}</span>}
                     </div>
                   </button>
                   <div className="flex shrink-0 flex-col gap-1">
                     {it.status === 'resolved' ? (
                       <Btn size="sm" variant="ghost" disabled={busy} onClick={() => act(it.id, 'reopen')}>
-                        Reopen
+                        {t('inbox.reopen')}
                       </Btn>
                     ) : (
                       <>
                         <Btn size="sm" variant="primary" disabled={busy} onClick={() => act(it.id, 'resolve')}>
-                          Resolve
+                          {t('inbox.resolve')}
                         </Btn>
                         <Btn size="sm" disabled={busy} onClick={() => act(it.id, 'acknowledge')}>
-                          Ack
+                          {t('inbox.ack')}
                         </Btn>
                         <Btn size="sm" variant="ghost" disabled={busy} onClick={() => act(it.id, 'snooze', { minutes: 60 })}>
-                          Snooze 1h
+                          {t('inbox.snooze1h')}
                         </Btn>
                       </>
                     )}
@@ -142,7 +147,7 @@ export function CareInbox() {
         </ul>
       )}
 
-      <Drawer open={!!open} onClose={() => setOpenId(null)} title={open?.title ?? 'Care item'}>
+      <Drawer open={!!open} onClose={() => setOpenId(null)} title={open?.title ?? t('inbox.careItem')}>
         {open && <Detail ex={open} onAct={act} busy={busy} />}
       </Drawer>
     </div>
@@ -158,40 +163,42 @@ function Detail({
   onAct: (id: string, t: string, body?: Record<string, unknown>) => void;
   busy: boolean;
 }) {
+  const { t, label } = useT();
+  const { timeAgo } = useDates();
   const q = useQuery<{ exception: Exception; notifications: Notification[] }>(`/breeder/inbox/${ex.id}`);
   return (
     <div className="space-y-5 text-sm">
       <div className="flex flex-wrap gap-2">
-        <Badge className={severityClass[ex.severity] ?? severityClass.info}>{ex.severity}</Badge>
-        <Badge className="bg-slate-700/40 text-slate-300 ring-slate-600/40">{ex.status}</Badge>
-        <span className="text-xs text-slate-500">{titleCase(ex.kind)} · {timeAgo(ex.created_at)}</span>
+        <Badge className={severityClass[ex.severity] ?? severityClass.info}>{label('severity', ex.severity)}</Badge>
+        <Badge className="bg-slate-700/40 text-slate-300 ring-slate-600/40">{label('inboxStatus', ex.status)}</Badge>
+        <span className="text-xs text-slate-500">{label('kind', ex.kind)} · {timeAgo(ex.created_at)}</span>
       </div>
 
       {ex.detail && <p className="text-slate-300">{ex.detail}</p>}
       {ex.suggested_action && (
         <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-3">
-          <div className="text-xs uppercase tracking-wide text-slate-500">Suggested action</div>
+          <div className="text-xs uppercase tracking-wide text-slate-500">{t('inbox.suggested')}</div>
           <div className="mt-1 text-slate-200">{ex.suggested_action}</div>
         </div>
       )}
 
       <div className="flex flex-wrap gap-2">
-        <Btn size="sm" variant="primary" disabled={busy} onClick={() => onAct(ex.id, 'resolve')}>Resolve</Btn>
-        <Btn size="sm" disabled={busy} onClick={() => onAct(ex.id, 'acknowledge')}>Acknowledge</Btn>
-        <Btn size="sm" disabled={busy} onClick={() => onAct(ex.id, 'snooze', { minutes: 60 })}>Snooze 1h</Btn>
-        <Btn size="sm" disabled={busy} onClick={() => onAct(ex.id, 'snooze', { minutes: 480 })}>Snooze 8h</Btn>
-        <Btn size="sm" variant="danger" disabled={busy} onClick={() => onAct(ex.id, 'escalate')}>Escalate</Btn>
+        <Btn size="sm" variant="primary" disabled={busy} onClick={() => onAct(ex.id, 'resolve')}>{t('inbox.resolve')}</Btn>
+        <Btn size="sm" disabled={busy} onClick={() => onAct(ex.id, 'acknowledge')}>{t('inbox.acknowledge')}</Btn>
+        <Btn size="sm" disabled={busy} onClick={() => onAct(ex.id, 'snooze', { minutes: 60 })}>{t('inbox.snooze1h')}</Btn>
+        <Btn size="sm" disabled={busy} onClick={() => onAct(ex.id, 'snooze', { minutes: 480 })}>{t('inbox.snooze8h')}</Btn>
+        <Btn size="sm" variant="danger" disabled={busy} onClick={() => onAct(ex.id, 'escalate')}>{t('inbox.escalate')}</Btn>
       </div>
 
       <div>
-        <div className="mb-2 text-xs uppercase tracking-wide text-slate-500">Notification history</div>
+        <div className="mb-2 text-xs uppercase tracking-wide text-slate-500">{t('inbox.notifHistory')}</div>
         {q.loading ? (
           <Spinner />
         ) : q.data && q.data.notifications.length ? (
           <ul className="space-y-1.5">
             {q.data.notifications.map((n, i) => (
               <li key={i} className="flex items-center gap-2 text-xs">
-                <Badge className="bg-slate-800 text-slate-300 ring-slate-700">{n.channel}</Badge>
+                <Badge className="bg-slate-800 text-slate-300 ring-slate-700">{label('channel', n.channel)}</Badge>
                 <span className={n.status === 'sent' ? 'text-emerald-400' : n.status === 'failed' ? 'text-rose-400' : 'text-slate-400'}>
                   {n.status}
                 </span>
@@ -201,7 +208,7 @@ function Detail({
             ))}
           </ul>
         ) : (
-          <p className="text-xs text-slate-500">No notifications were sent for this item.</p>
+          <p className="text-xs text-slate-500">{t('inbox.noNotifs')}</p>
         )}
       </div>
     </div>
