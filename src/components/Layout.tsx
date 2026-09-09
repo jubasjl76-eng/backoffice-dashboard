@@ -16,6 +16,7 @@ const NAV = [
   { to: '/devices', label: 'Devices', icon: '📟' },
   { to: '/ops', label: 'Ops', icon: '🛠' },
   { to: '/website', label: 'Website', icon: '🌐' },
+  { to: '/notifications', label: 'Notifications', icon: '🔔' },
   { to: '/settings', label: 'Settings', icon: '⚙️' },
 ];
 

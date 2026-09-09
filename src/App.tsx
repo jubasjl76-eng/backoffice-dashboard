@@ -14,6 +14,7 @@ import { Devices } from './pages/Devices';
 import { Ops } from './pages/Ops';
 import { Website } from './pages/Website';
 import { Settings } from './pages/Settings';
+import { Notifications } from './pages/Notifications';
 
 export default function App() {
   return (
@@ -39,6 +40,7 @@ export default function App() {
             <Route path="/devices" element={<Devices />} />
             <Route path="/ops" element={<Ops />} />
             <Route path="/website" element={<Website />} />
+            <Route path="/notifications" element={<Notifications />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
