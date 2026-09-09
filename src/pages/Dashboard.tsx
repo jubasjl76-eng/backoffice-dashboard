@@ -33,7 +33,7 @@ function Stat({ label, value, tone = 'slate', to }: { label: string; value: numb
       <div className={`mt-1 text-2xl font-semibold ${tones[tone]}`}>{value}</div>
     </Card>
   );
-  return to ? <Link to={to}>{body}</Link> : body;
+  return to ? <Link to={to} aria-label={`${label}: ${value}`}>{body}</Link> : body;
 }
 
 export function Dashboard() {

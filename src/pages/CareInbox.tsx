@@ -1,8 +1,9 @@
 import { useCallback, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Badge, Btn, Card, Drawer, EmptyState, PageHeader, Spinner } from '../components/ui';
+import { Badge, Btn, Card, Drawer, EmptyState, Field, PageHeader, Select, Spinner } from '../components/ui';
 import { useDates, useT } from '../i18n';
 import { api } from '../lib/api';
+import { useAuth } from '../lib/auth';
 import { severityClass } from '../lib/format';
 import { useMutation, useQuery } from '../lib/useApi';
 import { useStream } from '../lib/stream';
@@ -20,6 +21,7 @@ interface Exception {
   suggested_action: string | null;
   animal_name?: string | null;
   pen_name?: string | null;
+  assigned_to?: string | null;
   livePriority?: number;
 }
 interface InboxResp {
@@ -83,7 +85,7 @@ export function CareInbox() {
 
       <div className="flex flex-wrap gap-1">
         {FILTERS.map((f) => (
-          <Btn key={f.key} size="sm" variant={filter === f.key ? 'primary' : 'ghost'} onClick={() => setFilter(f.key)}>
+          <Btn key={f.key} size="sm" variant={filter === f.key ? 'primary' : 'ghost'} aria-pressed={filter === f.key} onClick={() => setFilter(f.key)}>
             {t(f.label)}
           </Btn>
         ))}
@@ -101,7 +103,7 @@ export function CareInbox() {
             <li key={it.id}>
               <Card className="p-3">
                 <div className="flex items-start gap-3">
-                  <button className="min-w-0 flex-1 text-left" onClick={() => setOpenId(it.id)}>
+                  <button type="button" className="min-w-0 flex-1 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-400" onClick={() => setOpenId(it.id)}>
                     <div className="flex flex-wrap items-center gap-2">
                       <Badge className={severityClass[it.severity] ?? severityClass.info}>{label('severity', it.severity)}</Badge>
                       <span className="text-xs text-slate-500">{label('kind', it.kind)}</span>
@@ -190,6 +192,8 @@ function Detail({
         <Btn size="sm" variant="danger" disabled={busy} onClick={() => onAct(ex.id, 'escalate')}>{t('inbox.escalate')}</Btn>
       </div>
 
+      <AssignRow ex={ex} onAct={onAct} busy={busy} />
+
       <div>
         <div className="mb-2 text-xs uppercase tracking-wide text-slate-500">{t('inbox.notifHistory')}</div>
         {q.loading ? (
@@ -209,6 +213,58 @@ function Detail({
           </ul>
         ) : (
           <p className="text-xs text-slate-500">{t('inbox.noNotifs')}</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+interface TeamUser {
+  id: string;
+  email: string;
+  name: string | null;
+  active: boolean;
+}
+
+function AssignRow({
+  ex,
+  onAct,
+  busy,
+}: {
+  ex: Exception;
+  onAct: (id: string, t: string, body?: Record<string, unknown>) => void;
+  busy: boolean;
+}) {
+  const { t } = useT();
+  const { user } = useAuth();
+  const team = useQuery<{ users: TeamUser[] }>(user?.role === 'owner' ? '/users' : null);
+  const people =
+    team.data?.users.filter((u) => u.active) ??
+    (user ? [{ id: user.id, email: user.email, name: user.name, active: true }] : []);
+  const [who, setWho] = useState(ex.assigned_to ?? user?.id ?? '');
+  const assigned = people.find((p) => p.id === ex.assigned_to);
+
+  return (
+    <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-3">
+      <div className="text-xs uppercase tracking-wide text-slate-400">{t('inbox.assignedTo')}</div>
+      <p className="mt-1 text-slate-200">
+        {assigned ? assigned.name || assigned.email : ex.assigned_to ? t('inbox.someone') : t('inbox.unassigned')}
+      </p>
+      <div className="mt-3 flex flex-wrap items-end gap-2">
+        <Field label={t('inbox.staff')}>
+          <Select value={who} onChange={(e) => setWho(e.target.value)} aria-label={t('inbox.assignAria')}>
+            {people.map((p) => (
+              <option key={p.id} value={p.id}>{p.name || p.email}</option>
+            ))}
+          </Select>
+        </Field>
+        <Btn size="sm" disabled={busy || !who} onClick={() => onAct(ex.id, 'assign', { userId: who })}>
+          {t('inbox.assign')}
+        </Btn>
+        {user && (
+          <Btn size="sm" variant="ghost" disabled={busy} onClick={() => onAct(ex.id, 'assign', { userId: user.id })}>
+            {t('inbox.assignToMe')}
+          </Btn>
         )}
       </div>
     </div>

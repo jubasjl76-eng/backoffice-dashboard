@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes, ReactNode, InputHTMLAttributes, SelectHTMLAttributes } from 'react';
+import { useEffect, useId, useRef, type ButtonHTMLAttributes, type ReactNode, type InputHTMLAttributes, type SelectHTMLAttributes } from 'react';
 import { useT } from '../i18n';
 
 export function Card({ children, className = '' }: { children: ReactNode; className?: string }) {
@@ -19,7 +19,7 @@ type BtnProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: 'primary' | 'ghost' | 'danger' | 'subtle';
   size?: 'sm' | 'md';
 };
-export function Btn({ variant = 'subtle', size = 'md', className = '', ...p }: BtnProps) {
+export function Btn({ variant = 'subtle', size = 'md', className = '', type = 'button', ...p }: BtnProps) {
   const base =
     'inline-flex items-center justify-center gap-1.5 rounded-lg font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-400 disabled:opacity-50 disabled:pointer-events-none';
   const sizes = { sm: 'px-2.5 py-1 text-xs', md: 'px-3.5 py-2 text-sm' }[size];
@@ -29,7 +29,7 @@ export function Btn({ variant = 'subtle', size = 'md', className = '', ...p }: B
     ghost: 'text-slate-300 hover:bg-slate-800 hover:text-white',
     subtle: 'bg-slate-800 text-slate-100 hover:bg-slate-700 ring-1 ring-inset ring-slate-700',
   }[variant];
-  return <button className={`${base} ${sizes} ${variants} ${className}`} {...p} />;
+  return <button type={type} className={`${base} ${sizes} ${variants} ${className}`} {...p} />;
 }
 
 export function Field({
@@ -51,7 +51,7 @@ export function Field({
 }
 
 const inputCls =
-  'w-full rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-indigo-400 focus:outline-none';
+  'w-full rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-indigo-400 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-400';
 
 export function Input(p: InputHTMLAttributes<HTMLInputElement>) {
   return <input {...p} className={`${inputCls} ${p.className ?? ''}`} />;
@@ -89,6 +89,9 @@ export function PageHeader({ title, children }: { title: string; children?: Reac
   );
 }
 
+const FOCUSABLE =
+  'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
 export function Drawer({
   open,
   onClose,
@@ -100,24 +103,67 @@ export function Drawer({
   title: string;
   children: ReactNode;
 }) {
+  const panelRef = useRef<HTMLDivElement>(null);
+  const lastFocus = useRef<HTMLElement | null>(null);
+  const onCloseRef = useRef(onClose);
+  const titleId = useId();
+  const { t } = useT();
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  useEffect(() => {
+    if (!open) return;
+    lastFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const panel = panelRef.current;
+    const nodes = () => Array.from(panel?.querySelectorAll<HTMLElement>(FOCUSABLE) ?? []);
+    nodes()[0]?.focus();
+
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        onCloseRef.current();
+        return;
+      }
+      if (e.key !== 'Tab') return;
+      const list = nodes();
+      if (!list.length) return;
+      const first = list[0];
+      const last = list[list.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
+
+    document.addEventListener('keydown', onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.body.style.overflow = prev;
+      lastFocus.current?.focus();
+    };
+  }, [open]);
+
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-40" role="dialog" aria-modal="true" aria-label={title}>
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="absolute right-0 top-0 flex h-full w-full max-w-md flex-col border-l border-slate-800 bg-slate-950 shadow-xl">
+    <div className="fixed inset-0 z-40" role="dialog" aria-modal="true" aria-labelledby={titleId}>
+      <button type="button" className="absolute inset-0 bg-black/50" onClick={onClose} aria-label={t('common.closeDrawer')} />
+      <div
+        ref={panelRef}
+        className="absolute right-0 top-0 flex h-full w-full max-w-md flex-col border-l border-slate-800 bg-slate-950 shadow-xl"
+      >
         <div className="flex items-center justify-between border-b border-slate-800 px-5 py-4">
-          <h2 className="font-semibold text-white">{title}</h2>
-          <CloseBtn onClose={onClose} />
+          <h2 id={titleId} className="font-semibold text-white">{title}</h2>
+          <Btn variant="ghost" size="sm" onClick={onClose} aria-label={t('common.close')}>✕</Btn>
         </div>
         <div className="flex-1 overflow-auto p-5">{children}</div>
       </div>
     </div>
-  );
-}
-
-function CloseBtn({ onClose }: { onClose: () => void }) {
-  const { t } = useT();
-  return (
-    <Btn variant="ghost" size="sm" onClick={onClose} aria-label={t('common.close')}>✕</Btn>
   );
 }
