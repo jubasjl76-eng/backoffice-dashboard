@@ -1,5 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { api, ApiError } from './api';
+import { api, ApiError, RateLimitedError } from './api';
+
+function errMessage(e: unknown): string {
+  if (e instanceof RateLimitedError) return 'Too many requests — give it a few seconds and retry.';
+  if (e instanceof ApiError) return e.message;
+  return String(e);
+}
 
 export function useQuery<T = unknown>(path: string | null) {
   const [data, setData] = useState<T | null>(null);
@@ -16,7 +22,7 @@ export function useQuery<T = unknown>(path: string | null) {
       const d = await api<T>(path);
       if (my === ver.current) setData(d);
     } catch (e) {
-      if (my === ver.current) setError(e instanceof ApiError ? e.message : String(e));
+      if (my === ver.current) setError(errMessage(e));
     } finally {
       if (my === ver.current) setLoading(false);
     }
@@ -38,7 +44,7 @@ export function useMutation() {
       try {
         return await fn();
       } catch (e) {
-        alert(e instanceof ApiError ? e.message : String(e));
+        alert(errMessage(e));
         return undefined;
       } finally {
         setBusy(false);
