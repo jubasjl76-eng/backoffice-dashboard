@@ -5,7 +5,17 @@
  *   Vite dev server proxies too — see vite.config.ts)
  * - access token in memory + localStorage; auto-refresh on 401 once
  * - all breeder endpoints are under /api/breeder/*
+ *
+ * The JSON transport routes through `@jubasjl76-eng/api-client`
+ * (`createSmartPetClient`): bearer auth + jittered retry/backoff on 429/5xx
+ * (honours `Retry-After`) + `RateLimitedError`. This module keeps the
+ * refresh-on-401, multipart upload, blob download and SSE-URL logic on top —
+ * those are not part of the generated client.
  */
+import { createSmartPetClient, RateLimitedError } from '@jubasjl76-eng/api-client';
+
+export { RateLimitedError };
+
 const BASE = (import.meta.env.VITE_API_BASE_URL as string) || '/api';
 
 const STORE = 'smartpet.auth';
@@ -80,36 +90,39 @@ async function doRefresh(): Promise<boolean> {
   return refreshing;
 }
 
+/** openapi-fetch client with the shared auth + 429/5xx retry middleware. */
+const client = createSmartPetClient({ baseUrl: BASE, token: () => session?.accessToken });
+type LooseResult = { data: unknown; error: unknown; response: Response };
+const request = (client as unknown as {
+  request: (method: string, url: string, init?: Record<string, unknown>) => Promise<LooseResult>;
+}).request;
+
 export async function api<T = unknown>(
   path: string,
   opts: { method?: string; body?: unknown; retry?: boolean } = {}
 ): Promise<T> {
-  const method = opts.method ?? 'GET';
-  const headers: Record<string, string> = {};
-  if (opts.body !== undefined) headers['content-type'] = 'application/json';
-  if (session?.accessToken) headers.authorization = `Bearer ${session.accessToken}`;
+  const method = (opts.method ?? 'GET').toLowerCase();
 
-  const res = await fetch(`${BASE}${path}`, {
-    method,
-    headers,
-    body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
+  const { data, error, response } = await request(method, path, {
+    ...(opts.body !== undefined ? { body: opts.body } : {}),
+    parseAs: 'text',
   });
 
-  if (res.status === 401 && opts.retry !== false && (await doRefresh())) {
+  if (response.status === 401 && opts.retry !== false && (await doRefresh())) {
     return api<T>(path, { ...opts, retry: false });
   }
-  if (res.status === 401) {
+  if (response.status === 401) {
     persist(null);
     throw new ApiError(401, 'Session expired');
   }
 
-  const text = await res.text();
-  const data = text ? safeJson(text) : null;
-  if (!res.ok) {
-    const msg = (data && (data.error || data.message)) || res.statusText;
-    throw new ApiError(res.status, msg, data);
+  const raw = (response.ok ? data : error) as string | null | undefined;
+  const parsed = raw ? safeJson(raw) : null;
+  if (!response.ok) {
+    const msg = (parsed && (parsed.error || parsed.message)) || response.statusText;
+    throw new ApiError(response.status, msg, parsed);
   }
-  return data as T;
+  return parsed as T;
 }
 
 async function authHeaders(): Promise<HeadersInit> {

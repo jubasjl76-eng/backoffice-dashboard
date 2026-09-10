@@ -10,6 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@jubasjl76-eng/api-client": "git+https://github.com/jubasjl76-eng/smart-pet-api-client.git#api-client-v0.1.1",
     "@react-navigation/native": "^7.1.33",
     "axios": "^1.13.6",
     "react": "^19.2.4",
