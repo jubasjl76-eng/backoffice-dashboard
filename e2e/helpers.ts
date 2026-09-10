@@ -32,6 +32,7 @@ export async function mockApi(page: Page, overrides: Record<string, unknown> = {
     '**/api/breeder/animals': { animals: [] },
     '**/api/breeder/medications/due**': { due: [] },
     '**/api/breeder/fleet/devices': { devices: [] },
+    '**/api/breeder/fleet/control': { safeMode: false, reason: null, updatedAt: null },
     '**/api/breeder/breeding/calendar': { heats: [], litters: [], goHome: [] },
     '**/api/breeder/litters': { litters: [] },
     '**/api/users': { users: [] },

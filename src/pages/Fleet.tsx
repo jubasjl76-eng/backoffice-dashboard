@@ -72,12 +72,80 @@ export function Fleet() {
   return (
     <div className="space-y-5">
       <PageHeader title={t('fleet.title')} />
+      <KillSwitch />
       <div className="flex gap-1">
         <Btn size="sm" variant={tab === 'fleet' ? 'primary' : 'ghost'} onClick={() => setTab('fleet')}>{t('fleet.firmware')}</Btn>
         <Btn size="sm" variant={tab === 'map' ? 'primary' : 'ghost'} onClick={() => setTab('map')}>{t('fleet.map')}</Btn>
       </div>
       {tab === 'fleet' ? <FirmwareTab /> : <MapTab />}
     </div>
+  );
+}
+
+interface FleetControl {
+  safeMode: boolean;
+  reason: string | null;
+  updatedAt: string | null;
+}
+
+function KillSwitch() {
+  const { t } = useT();
+  const { timeAgo } = useDates();
+  const control = useQuery<FleetControl>('/breeder/fleet/control');
+  const [run, busy] = useMutation();
+  const state = control.data;
+
+  async function halt() {
+    if (!confirm(t('fleet.haltConfirm'))) return;
+    const reason = prompt(t('fleet.haltReason')) ?? undefined;
+    const r = await run(() =>
+      api<{ safeMode: boolean; brokerPublished: boolean }>('/breeder/fleet/halt', {
+        method: 'POST',
+        body: reason ? { reason } : {},
+      }),
+    );
+    if (r) {
+      if (!r.brokerPublished) alert(t('fleet.brokerOffline'));
+      control.reload();
+    }
+  }
+
+  async function resume() {
+    const r = await run(() => api('/breeder/fleet/resume', { method: 'POST' }));
+    if (r) control.reload();
+  }
+
+  if (state?.safeMode) {
+    return (
+      <div className="flex flex-wrap items-center gap-3 rounded-lg border border-rose-500/40 bg-rose-500/10 p-4">
+        <span className="text-lg" aria-hidden>⛔</span>
+        <div className="min-w-0 flex-1">
+          <div className="font-medium text-rose-200">{t('fleet.halted')}</div>
+          <div className="text-sm text-rose-300/80">
+            {state.reason || t('fleet.killTitle')}
+            {state.updatedAt && <span className="text-rose-300/50"> · {t('fleet.haltedSince', { when: timeAgo(state.updatedAt) })}</span>}
+          </div>
+        </div>
+        <Btn variant="primary" disabled={busy} onClick={resume}>{t('fleet.resumeFleet')}</Btn>
+      </div>
+    );
+  }
+
+  return (
+    <Card className="flex flex-wrap items-center gap-3 p-4">
+      <div className="min-w-0 flex-1">
+        <h2 className="font-medium text-slate-200">{t('fleet.killTitle')}</h2>
+        <p className="text-sm text-slate-500">{t('fleet.killHint')}</p>
+      </div>
+      <Btn
+        className="border-rose-500/40 text-rose-300 hover:bg-rose-500/10"
+        variant="ghost"
+        disabled={busy || control.loading}
+        onClick={halt}
+      >
+        {t('fleet.haltBtn')}
+      </Btn>
+    </Card>
   );
 }
 
