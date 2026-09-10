@@ -68,17 +68,181 @@ interface Named {
 
 export function Fleet() {
   const { t } = useT();
-  const [tab, setTab] = useState<'fleet' | 'map'>('fleet');
+  const [tab, setTab] = useState<'fleet' | 'health' | 'map'>('fleet');
   return (
     <div className="space-y-5">
       <PageHeader title={t('fleet.title')} />
       <KillSwitch />
       <div className="flex gap-1">
         <Btn size="sm" variant={tab === 'fleet' ? 'primary' : 'ghost'} onClick={() => setTab('fleet')}>{t('fleet.firmware')}</Btn>
+        <Btn size="sm" variant={tab === 'health' ? 'primary' : 'ghost'} onClick={() => setTab('health')}>{t('fleet.healthTab')}</Btn>
         <Btn size="sm" variant={tab === 'map' ? 'primary' : 'ghost'} onClick={() => setTab('map')}>{t('fleet.map')}</Btn>
       </div>
-      {tab === 'fleet' ? <FirmwareTab /> : <MapTab />}
+      {tab === 'fleet' ? <FirmwareTab /> : tab === 'health' ? <HealthTab /> : <MapTab />}
     </div>
+  );
+}
+
+interface FleetHealth {
+  versions: { fw: string; deviceType: string; total: number; online: number }[];
+  rollouts: { deviceType: string; version: string; state: string; percent: number; total: number; onTarget: number; pending: number }[];
+  crashes: {
+    windowDays: number;
+    totalDevices: number;
+    crashFreeDevices: number;
+    byVersion: { fw: string; crashes: number; devices: number }[];
+  };
+}
+
+function HealthTab() {
+  const { t, label } = useT();
+  const health = useQuery<FleetHealth>('/breeder/fleet/health');
+  const builds = useQuery<{ firmware: Firmware[] }>('/breeder/fleet/firmware');
+  const [run, busy] = useMutation();
+  const h = health.data;
+
+  async function rollback(deviceType: string, fwId: string, version: string) {
+    if (!confirm(t('fleet.rollbackConfirm', { type: label('deviceType', deviceType), version }))) return;
+    const r = await run(() => api('/breeder/fleet/rollouts', { method: 'POST', body: { firmwareId: fwId, percent: 100 } }));
+    if (r) health.reload();
+  }
+
+  if (health.loading && !h) return <Spinner />;
+  if (!h?.crashes || h.crashes.totalDevices === 0) return <EmptyState title={t('fleet.healthEmpty')} />;
+
+  const maxVer = Math.max(1, ...h.versions.map((v) => v.total));
+  const pct = h.crashes.totalDevices ? Math.round((h.crashes.crashFreeDevices / h.crashes.totalDevices) * 100) : 100;
+
+  return (
+    <div className="space-y-6">
+      <Card className="p-4">
+        <div className="flex items-end gap-3">
+          <span className="text-3xl font-semibold text-slate-100">{pct}%</span>
+          <span className="pb-1 text-sm text-slate-400">
+            {t('fleet.crashFree')} · {t('fleet.crashFreeOf', { ok: h.crashes.crashFreeDevices, total: h.crashes.totalDevices })}
+            <span className="text-slate-600"> · {t('fleet.crashWindow', { days: h.crashes.windowDays })}</span>
+          </span>
+        </div>
+      </Card>
+
+      <Card className="p-4">
+        <h2 className="mb-3 font-medium text-slate-200">{t('fleet.versionHistogram')}</h2>
+        <ul className="space-y-2 text-sm">
+          {h.versions.map((v) => (
+            <li key={`${v.deviceType} ${v.fw}`} className="flex items-center gap-3">
+              <span className="w-40 shrink-0 truncate text-slate-300">
+                {label('deviceType', v.deviceType)} <span className="font-mono text-xs text-slate-500">{v.fw}</span>
+              </span>
+              <div className="h-4 flex-1 overflow-hidden rounded bg-slate-800">
+                <div className="h-full bg-indigo-500/60" style={{ width: `${(v.total / maxVer) * 100}%` }} />
+              </div>
+              <span className="w-24 shrink-0 text-right text-xs text-slate-500">
+                {t('fleet.onlineOfTotal', { online: v.online, total: v.total })}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </Card>
+
+      {h.rollouts.length > 0 && (
+        <Card className="p-4">
+          <h2 className="mb-3 font-medium text-slate-200">{t('fleet.rolloutProgress')}</h2>
+          <ul className="space-y-4">
+            {h.rollouts.map((r) => {
+              const others = (builds.data?.firmware ?? []).filter(
+                (f) => f.device_type === r.deviceType && f.version !== r.version,
+              );
+              return (
+                <li key={r.deviceType} className="border-t border-slate-800 pt-3 first:border-0 first:pt-0">
+                  <div className="flex flex-wrap items-center gap-2 text-sm">
+                    <span className="font-medium text-slate-100">{label('deviceType', r.deviceType)} {r.version}</span>
+                    <Badge className={r.state === 'paused' ? 'bg-amber-500/15 text-amber-300 ring-amber-500/30' : 'bg-sky-500/10 text-sky-300 ring-sky-500/30'}>
+                      {label('rolloutState', r.state)} · {r.percent}%
+                    </Badge>
+                  </div>
+                  <div className="mt-2 h-3 overflow-hidden rounded bg-slate-800">
+                    <div className="h-full bg-emerald-500/60" style={{ width: `${r.total ? (r.onTarget / r.total) * 100 : 0}%` }} />
+                  </div>
+                  <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-slate-500">
+                    <span>{t('fleet.onTarget', { n: r.onTarget })}</span>
+                    {r.pending > 0 && <span className="text-amber-400">{t('fleet.behind', { n: r.pending })}</span>}
+                    {others.length > 0 && (
+                      <span className="ml-auto flex items-center gap-1">
+                        <RollbackPicker
+                          deviceType={r.deviceType}
+                          builds={others}
+                          disabled={busy}
+                          onRollback={(fwId, version) => rollback(r.deviceType, fwId, version)}
+                        />
+                      </span>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </Card>
+      )}
+
+      <Card className="p-4">
+        <h2 className="mb-3 font-medium text-slate-200">{t('fleet.crashesByVersion')}</h2>
+        {h.crashes.byVersion.length === 0 ? (
+          <p className="text-sm text-slate-500">{t('fleet.noCrashes')}</p>
+        ) : (
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-xs uppercase tracking-wide text-slate-500">
+                <th className="py-1.5 pr-3">fw</th>
+                <th className="py-1.5 pr-3 text-right">{t('fleet.crashesCol')}</th>
+                <th className="py-1.5 text-right">{t('fleet.devicesCol')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {h.crashes.byVersion.map((c) => (
+                <tr key={c.fw} className="border-t border-slate-800">
+                  <td className="py-1.5 pr-3 font-mono text-xs text-slate-300">{c.fw}</td>
+                  <td className="py-1.5 pr-3 text-right text-rose-300">{c.crashes}</td>
+                  <td className="py-1.5 text-right text-slate-400">{c.devices}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </Card>
+    </div>
+  );
+}
+
+function RollbackPicker({
+  deviceType,
+  builds,
+  disabled,
+  onRollback,
+}: {
+  deviceType: string;
+  builds: Firmware[];
+  disabled: boolean;
+  onRollback: (fwId: string, version: string) => void;
+}) {
+  const { t } = useT();
+  const [sel, setSel] = useState('');
+  const chosen = builds.find((b) => b.id === sel);
+  return (
+    <>
+      <label className="sr-only" htmlFor={`rb-${deviceType}`}>{t('fleet.rollbackTo', { type: deviceType })}</label>
+      <Select id={`rb-${deviceType}`} value={sel} onChange={(e) => setSel(e.target.value)} className="h-7 py-0 text-xs">
+        <option value="">{t('fleet.rollback')}…</option>
+        {builds.map((b) => <option key={b.id} value={b.id}>{b.version}</option>)}
+      </Select>
+      <Btn
+        size="sm"
+        variant="danger"
+        disabled={disabled || !chosen}
+        onClick={() => chosen && onRollback(chosen.id, chosen.version)}
+      >
+        {t('fleet.rollback')}
+      </Btn>
+    </>
   );
 }
 
