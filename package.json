@@ -12,6 +12,7 @@
   "dependencies": {
     "@jubasjl76-eng/api-client": "git+https://github.com/jubasjl76-eng/smart-pet-api-client.git#api-client-v0.1.1",
     "@react-navigation/native": "^7.1.33",
+    "@sentry/react": "^10.74.0",
     "axios": "^1.13.6",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
@@ -20,6 +21,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
+    "@sentry/vite-plugin": "^5.4.0",
     "@types/node": "^24.12.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
