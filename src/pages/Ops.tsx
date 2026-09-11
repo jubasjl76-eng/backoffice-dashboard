@@ -5,7 +5,7 @@ import { api } from '../lib/api';
 import { titleCase } from '../lib/format';
 import { useMutation, useQuery } from '../lib/useApi';
 
-const TABS = ['consumables', 'maintenance', 'emergency'] as const;
+const TABS = ['consumables', 'maintenance', 'emergency', 'flags'] as const;
 type Tab = (typeof TABS)[number];
 
 export function Ops() {
@@ -24,6 +24,7 @@ export function Ops() {
       {tab === 'consumables' && <Consumables />}
       {tab === 'maintenance' && <Maintenance />}
       {tab === 'emergency' && <Emergency />}
+      {tab === 'flags' && <FeatureFlags />}
     </div>
   );
 }
@@ -329,6 +330,98 @@ function Emergency() {
           </div>
         )}
       </Card>
+    </div>
+  );
+}
+
+// ── Feature flags (Phase 20, A12) ───────────────────────────────────────────
+interface Flag {
+  key: string;
+  enabled: boolean;
+  description: string | null;
+  updated_at: string;
+}
+
+function FeatureFlags() {
+  const { t } = useT();
+  const { timeAgo } = useDates();
+  const q = useQuery<{ flags: Flag[] }>('/breeder/flags');
+  const [run, busy] = useMutation();
+  const [adding, setAdding] = useState(false);
+  const [form, setForm] = useState({ key: '', description: '' });
+
+  async function create() {
+    const r = await run(() =>
+      api(`/breeder/flags/${form.key}`, { method: 'PUT', body: { enabled: false, description: form.description || null } })
+    );
+    if (r) {
+      setAdding(false);
+      setForm({ key: '', description: '' });
+      q.reload();
+    }
+  }
+  async function toggle(f: Flag) {
+    const r = await run(() => api(`/breeder/flags/${f.key}`, { method: 'PUT', body: { enabled: !f.enabled } }));
+    if (r) q.reload();
+  }
+  async function remove(f: Flag) {
+    if (!confirm(t('ops.flagDeleteConfirm', { key: f.key }))) return;
+    const r = await run(() => api(`/breeder/flags/${f.key}`, { method: 'DELETE' }));
+    if (r) q.reload();
+  }
+
+  const flags = q.data?.flags ?? [];
+
+  return (
+    <div className="space-y-4">
+      <div className="flex gap-2">
+        <Btn variant="primary" size="sm" onClick={() => setAdding(true)}>{t('ops.flagAdd')}</Btn>
+      </div>
+
+      {adding && (
+        <Card className="p-4">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label={t('ops.flagKey')}>
+              <Input value={form.key} onChange={(e) => setForm({ ...form, key: e.target.value })} placeholder="new-console" />
+            </Field>
+            <Field label={t('ops.flagDescription')}>
+              <Input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+            </Field>
+          </div>
+          <p className="mt-2 text-xs text-slate-500">{t('ops.flagKeyHint')}</p>
+          <div className="mt-3 flex gap-2">
+            <Btn variant="primary" disabled={busy || !form.key} onClick={create}>{t('common.save')}</Btn>
+            <Btn variant="ghost" onClick={() => setAdding(false)}>{t('common.cancel')}</Btn>
+          </div>
+        </Card>
+      )}
+
+      {q.loading && !q.data ? (
+        <Spinner />
+      ) : flags.length === 0 ? (
+        <EmptyState title={t('ops.flagsEmpty')} hint={t('ops.flagsEmptyHint')} />
+      ) : (
+        <ul className="space-y-2">
+          {flags.map((f) => (
+            <li key={f.key}>
+              <Card className="flex flex-wrap items-center gap-3 p-3">
+                <Badge className={f.enabled ? 'bg-emerald-500/10 text-emerald-300 ring-emerald-500/30' : 'bg-slate-700/40 text-slate-400 ring-slate-600/40'}>
+                  {f.enabled ? t('ops.flagOn') : t('ops.flagOff')}
+                </Badge>
+                <div className="min-w-0 flex-1">
+                  <div className="font-medium text-slate-100">{f.key}</div>
+                  {f.description && <div className="text-xs text-slate-500">{f.description}</div>}
+                  <div className="text-xs text-slate-600">{t('ops.flagUpdated', { when: timeAgo(f.updated_at) })}</div>
+                </div>
+                <Btn size="sm" variant={f.enabled ? 'danger' : 'primary'} disabled={busy} onClick={() => toggle(f)}>
+                  {f.enabled ? t('ops.flagDisable') : t('ops.flagEnable')}
+                </Btn>
+                <Btn size="sm" variant="ghost" disabled={busy} onClick={() => remove(f)}>{t('common.delete')}</Btn>
+              </Card>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
