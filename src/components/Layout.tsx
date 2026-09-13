@@ -4,6 +4,7 @@ import { useT } from '../i18n';
 import { useAuth } from '../lib/auth';
 import { useStream } from '../lib/stream';
 import { LocaleSwitch } from './LocaleSwitch';
+import { RateLimitBanner } from './RateLimitBanner';
 import { Btn } from './ui';
 
 const NAV = [
@@ -108,6 +109,8 @@ export function Layout() {
       >
         {t('nav.skip')}
       </a>
+
+      <RateLimitBanner />
 
       <aside className="hidden w-60 shrink-0 flex-col border-r border-slate-800 bg-slate-900/50 p-3 sm:flex">
         <div className="px-3 pb-6 pt-3">

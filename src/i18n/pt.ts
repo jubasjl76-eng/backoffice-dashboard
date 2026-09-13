@@ -58,6 +58,8 @@ export const pt: Dict = {
     unnamed: '(sem nome)',
     papers: 'Documentos',
     sire: 'Macho',
+    rateLimited: 'Demasiados pedidos — a repetir em {seconds}s',
+    retryNow: 'Repetir agora',
     dam: 'Fêmea',
     sex: 'Sexo',
     female: 'Fêmea',
