@@ -58,6 +58,8 @@ export const en: Dict = {
     unnamed: '(unnamed)',
     papers: 'Papers',
     sire: 'Sire',
+    rateLimited: 'Too many requests — retrying in {seconds}s',
+    retryNow: 'Retry now',
     dam: 'Dam',
     sex: 'Sex',
     female: 'Female',
