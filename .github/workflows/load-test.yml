@@ -1,0 +1,27 @@
+name: load-test
+
+# Manual only (hardening Phase 21, A12 #24) — replays the dashboard's
+# critical-path API calls (Dashboard home, Care Inbox, Devices, Fleet)
+# against a real deployed environment (staging by default), not something
+# to run on every push. Same credentials as smart-pet-backend's own
+# load-test.yml (staging-load-test GitHub Environment) — see
+# OPERATOR-ACTIONS.md H6.
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_url:
+        description: 'Backend API base URL under test.'
+        type: string
+        default: 'https://api-staging.smartpet.example' # placeholder — see OPERATOR-ACTIONS.md
+
+jobs:
+  k6:
+    environment: staging-load-test
+    uses: jubasjl76-eng/smart-pet-ci/.github/workflows/k6-load-test.yml@main
+    with:
+      script: k6/dashboard-session-load-test.js
+      target-url: ${{ inputs.target_url }}
+    secrets:
+      LOAD_TEST_EMAIL: ${{ secrets.LOAD_TEST_EMAIL }}
+      LOAD_TEST_PASSWORD: ${{ secrets.LOAD_TEST_PASSWORD }}
